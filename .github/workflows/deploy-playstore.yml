@@ -40,6 +40,9 @@ jobs:
   build-and-deploy:
     name: Build & Publish Release Bundle
     runs-on: ubuntu-latest
+    env:
+      KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+      PLAY_CONFIG: ${{ secrets.PLAY_CONFIG_JSON }}
 
     steps:
       - name: Checkout Source Code
@@ -66,7 +69,9 @@ jobs:
           java-version: '21'
 
       - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
+        with:
+          packages: 'platforms;android-36 build-tools;36.0.0 platform-tools'
 
       - name: Sync Capacitor Android
         run: npx cap sync android
@@ -97,11 +102,15 @@ jobs:
 
       - name: Decode Release Keystore
         id: decode_keystore
-        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
         run: |
-          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > android/app/release.jks
-          echo "Keystore decoded successfully."
-          echo "HAS_KEYSTORE=true" >> $GITHUB_ENV
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 -d -i > android/app/release.jks
+            echo "Keystore decoded successfully into android/app/release.jks"
+            echo "HAS_KEYSTORE=true" >> $GITHUB_ENV
+          else
+            echo "No keystore secret found in repository settings. Proceeding unsigned."
+            echo "HAS_KEYSTORE=false" >> $GITHUB_ENV
+          fi
 
       - name: Build Android App Bundle (AAB)
         run: |
@@ -117,7 +126,7 @@ jobs:
               -PRELEASE_KEY_ALIAS="${{ secrets.KEY_ALIAS }}" \
               -PRELEASE_KEY_PASSWORD="${{ secrets.KEY_PASSWORD }}"
           else
-            echo "Building unsigned release bundle (no keystore provided in secrets)..."
+            echo "Building unsigned release bundle..."
             ./gradlew bundleRelease \
               -PversionCode=${{ env.VERSION_CODE }} \
               -PversionName=${{ env.VERSION_NAME }}
@@ -131,7 +140,7 @@ jobs:
           retention-days: 30
 
       - name: Deploy Directly to Google Play Store
-        if: ${{ secrets.PLAY_CONFIG_JSON != '' }}
+        if: env.PLAY_CONFIG != ''
         uses: r0adkll/upload-google-play@v1
         with:
           serviceAccountJsonPlainText: ${{ secrets.PLAY_CONFIG_JSON }}
