@@ -104,9 +104,14 @@ jobs:
         id: decode_keystore
         run: |
           if [ -n "$KEYSTORE_BASE64" ]; then
-            echo "$KEYSTORE_BASE64" | base64 -d -i > android/app/release.jks
-            echo "Keystore decoded successfully into android/app/release.jks"
-            echo "HAS_KEYSTORE=true" >> $GITHUB_ENV
+            python3 -c "import base64, os; open('android/app/release.jks', 'wb').write(base64.b64decode(os.environ['KEYSTORE_BASE64'].strip()))"
+            if [ -s android/app/release.jks ]; then
+              echo "Keystore decoded successfully into android/app/release.jks"
+              echo "HAS_KEYSTORE=true" >> $GITHUB_ENV
+            else
+              echo "Failed to decode keystore file"
+              exit 1
+            fi
           else
             echo "No keystore secret found in repository settings. Proceeding unsigned."
             echo "HAS_KEYSTORE=false" >> $GITHUB_ENV
