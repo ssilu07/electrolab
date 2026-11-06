@@ -32,3 +32,16 @@ dist-ssr
 *.apk
 *.aab
 
+# Android build artifacts & private credentials
+.gradle/
+build/
+android/.gradle/
+android/.kotlin/
+android/app/build/
+android/capacitor-cordova-android-plugins/build/
+*.keystore
+*.jks
+play-service-account.json
+service-account*.json
+
+

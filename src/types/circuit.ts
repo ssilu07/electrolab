@@ -144,6 +144,10 @@ export interface ToastNotification {
   title: string;
   message: string;
   timestamp: number;
+  action?: {
+    label: string;
+    onClick: () => void;
+  };
 }
 
 export interface ChallengeLevel {

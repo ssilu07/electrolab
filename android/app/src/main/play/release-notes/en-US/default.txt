@@ -1,0 +1,6 @@
+ElectroLab Release v1.0.2:
+- Direct Google Play In-App Updates and live synchronization.
+- Official In-App Rating & Review integration.
+- Real-time Google Play Billing & Lifetime Pro purchase verification.
+- Enhanced 3D laboratory physics, audio effects, and component rendering.
+- Stability improvements and bug fixes.

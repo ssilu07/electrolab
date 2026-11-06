@@ -31,6 +31,8 @@ import { PresetsModal } from './components/PresetsModal';
 import { PrivacyPolicyModal } from './components/PrivacyPolicyModal';
 import { ProUpgradeModal } from './components/ProUpgradeModal';
 import { billingService } from './services/billingService';
+import { adService } from './services/adService';
+import { playStoreService } from './services/playStoreService';
 import { ToastContainer } from './components/Toast';
 import { NativeBridge } from './utils/nativeBridge';
 import {
@@ -163,13 +165,21 @@ export function App() {
   const prevShortCircuitRef = useRef<boolean>(false);
 
   // Toast dispatch helper
-  const addToast = useCallback((type: ToastNotification['type'], title: string, message: string) => {
-    const id = `t_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
-    setToasts((prev) => [...prev.slice(-4), { id, type, title, message, timestamp: Date.now() }]);
-    setTimeout(() => {
-      setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, 4500);
-  }, []);
+  const addToast = useCallback(
+    (
+      type: ToastNotification['type'],
+      title: string,
+      message: string,
+      action?: { label: string; onClick: () => void }
+    ) => {
+      const id = `t_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+      setToasts((prev) => [...prev.slice(-4), { id, type, title, message, timestamp: Date.now(), action }]);
+      setTimeout(() => {
+        setToasts((prev) => prev.filter((t) => t.id !== id));
+      }, action ? 9000 : 4500);
+    },
+    []
+  );
 
   const dismissToast = useCallback((id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
@@ -220,19 +230,68 @@ export function App() {
     };
   }, [showShareModal, showPresetsModal, showPrivacyModal, showProModal, selectedComponentId, wiringFromPinId, addToast]);
 
-  // 1. Google Play Billing check & Auto-revocation on Refund
+  // 1. Google Play Billing check & Auto-revocation on Refund + AdMob Init
   useEffect(() => {
     billingService.init().then((proActive) => {
       setIsPro(proActive);
       if (proActive) {
         addToast('info', 'ElectroLab Pro Active', 'Verified via Google Play. All features unlocked.');
+        adService.removeBanner().catch(() => {});
+      } else {
+        adService.init().then(() => {
+          adService.showBanner().catch(() => {});
+        });
       }
     });
 
     const unsub = billingService.onProStatusChange((proActive) => {
       setIsPro(proActive);
+      if (proActive) {
+        adService.removeBanner().catch(() => {});
+      } else {
+        adService.showBanner().catch(() => {});
+      }
     });
     return unsub;
+  }, [addToast]);
+
+  // 1b. Google Play Store In-App Updates & Live Direct Connection
+  useEffect(() => {
+    playStoreService.checkForUpdate().then((updateInfo) => {
+      if (updateInfo.updateAvailable) {
+        addToast(
+          'info',
+          'Play Store Update Available',
+          `A new version of ElectroLab (v${updateInfo.availableVersionCode}) is ready on Google Play.`,
+          {
+            label: 'Update Now',
+            onClick: () => {
+              if (updateInfo.immediateUpdateAllowed) {
+                playStoreService.startImmediateUpdate();
+              } else {
+                playStoreService.startFlexibleUpdate();
+              }
+            },
+          }
+        );
+      }
+    });
+
+    const unsubDownload = playStoreService.onDownloadComplete(() => {
+      addToast(
+        'success',
+        'Update Ready to Install',
+        'Update downloaded in background. Restart to apply new features.',
+        {
+          label: 'Restart Now',
+          onClick: () => playStoreService.completeFlexibleUpdate(),
+        }
+      );
+    });
+
+    return () => {
+      unsubDownload();
+    };
   }, [addToast]);
 
   // 2. Initial Load: Check Base64 URL parameter or load default demo circuit
@@ -275,6 +334,8 @@ export function App() {
 
   const handleSelectScreen = useCallback((screen: MainNavScreen) => {
     setActiveScreen(screen);
+    // Non-intrusive interstitial with cooldown check
+    adService.showInterstitial().catch(() => {});
     if (screen === 'circuit') {
       setViewMode('workbench');
       setGameMode('sandbox');
@@ -1110,6 +1171,33 @@ export function App() {
         onClearBoard={handleClearBoard}
         isPro={isPro}
         onOpenProModal={() => setShowProModal(true)}
+        onRateApp={() => {
+          playStoreService.requestReview();
+        }}
+        onCheckUpdates={() => {
+          addToast('info', 'Connecting to Play Store...', 'Checking for the latest updates.');
+          playStoreService.checkForUpdate().then((info) => {
+            if (info.updateAvailable) {
+              addToast(
+                'success',
+                'Update Found!',
+                `Version ${info.availableVersionCode} is available on Google Play.`,
+                {
+                  label: 'Update Now',
+                  onClick: () => {
+                    if (info.immediateUpdateAllowed) {
+                      playStoreService.startImmediateUpdate();
+                    } else {
+                      playStoreService.startFlexibleUpdate();
+                    }
+                  },
+                }
+              );
+            } else {
+              addToast('success', 'ElectroLab Up to Date', 'You are running the latest version from Play Store.');
+            }
+          });
+        }}
       />
 
       {/* Main Viewport: Instruments Studio vs 3D WebGL Lab vs 2D Workbench Canvas */}
@@ -1474,6 +1562,11 @@ export function App() {
             particleSystemRef.current.clear();
           }}
           onNextLevel={() => {
+            adService.showInterstitial().catch(() => {});
+            // Request Google Play In-App Review after successfully beating level 2
+            if (currentLevelIndex === 1) {
+              playStoreService.requestReview().catch(() => {});
+            }
             if (currentLevelIndex < CHALLENGE_LEVELS.length - 1) {
               setCurrentLevelIndex((prev) => prev + 1);
             }
@@ -1489,6 +1582,7 @@ export function App() {
       {showPresetsModal && (
         <PresetsModal
           onSelectPreset={(comps, wrs) => {
+            adService.showInterstitial().catch(() => {});
             setComponents(comps);
             setWires(wrs);
             setSelectedComponentId(null);

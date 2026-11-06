@@ -23,6 +23,8 @@ import {
   Settings,
   Zap,
   Crown,
+  Star,
+  Download,
 } from 'lucide-react';
 
 export type MainNavScreen = 'circuit' | 'instruments' | '3d' | 'challenges' | 'presets';
@@ -51,6 +53,8 @@ export interface TopBarProps {
   onOpenPrivacy?: () => void;
   isPro?: boolean;
   onOpenProModal?: () => void;
+  onRateApp?: () => void;
+  onCheckUpdates?: () => void;
 }
 
 export const TopBar: React.FC<TopBarProps> = ({
@@ -71,6 +75,8 @@ export const TopBar: React.FC<TopBarProps> = ({
   onOpenPrivacy,
   isPro = false,
   onOpenProModal,
+  onRateApp,
+  onCheckUpdates,
 }) => {
   const [settingsOpen, setSettingsOpen] = useState(false);
 
@@ -380,6 +386,41 @@ export const TopBar: React.FC<TopBarProps> = ({
                 <Camera className="w-3.5 h-3.5" />
                 <span>Snapshot</span>
               </button>
+            </div>
+
+            {/* Google Play Store Direct Connect Actions */}
+            <div className="pt-2 border-t border-white/10 flex flex-col gap-1.5">
+              {onRateApp && (
+                <button
+                  onClick={() => {
+                    setSettingsOpen(false);
+                    onRateApp();
+                  }}
+                  className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold text-emerald-400 hover:text-emerald-300 bg-emerald-950/30 border border-emerald-500/30 transition active:scale-95"
+                >
+                  <div className="flex items-center gap-2">
+                    <Star className="w-3.5 h-3.5 fill-emerald-400 text-emerald-400" />
+                    <span>Rate on Google Play</span>
+                  </div>
+                  <span className="text-[10px] text-emerald-300/80 font-mono">5★</span>
+                </button>
+              )}
+
+              {onCheckUpdates && (
+                <button
+                  onClick={() => {
+                    setSettingsOpen(false);
+                    onCheckUpdates();
+                  }}
+                  className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold text-cyan-400 hover:text-cyan-300 bg-cyan-950/30 border border-cyan-500/30 transition active:scale-95"
+                >
+                  <div className="flex items-center gap-2">
+                    <Download className="w-3.5 h-3.5" />
+                    <span>Check Play Store Updates</span>
+                  </div>
+                  <span className="text-[10px] text-cyan-300/80 font-mono">v1.0.2</span>
+                </button>
+              )}
             </div>
 
             {/* Privacy Policy Link */}

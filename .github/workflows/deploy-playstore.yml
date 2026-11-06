@@ -1,0 +1,147 @@
+name: Build & Deploy to Google Play Store
+
+on:
+  push:
+    branches: [main]
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      track:
+        description: 'Google Play Release Track'
+        required: true
+        default: 'internal'
+        type: choice
+        options:
+          - internal
+          - alpha
+          - beta
+          - production
+      status:
+        description: 'Release Status'
+        required: true
+        default: 'completed'
+        type: choice
+        options:
+          - completed
+          - draft
+          - inProgress
+          - halted
+      user_fraction:
+        description: 'Rollout fraction (1.0 = 100%, 0.1 = 10%)'
+        required: false
+        default: '1.0'
+
+concurrency:
+  group: playstore-deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    name: Build & Publish Release Bundle
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Node Dependencies
+        run: npm ci
+
+      - name: Build Web Application
+        run: npm run build
+
+      - name: Setup Java JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Sync Capacitor Android
+        run: npx cap sync android
+
+      - name: Determine Version Code & Name
+        id: versioning
+        run: |
+          PACKAGE_VERSION=$(node -p "require('./package.json').version")
+          BASE_OFFSET=10
+          CALC_VERSION_CODE=$((BASE_OFFSET + GITHUB_RUN_NUMBER))
+          echo "Calculated Version Code: $CALC_VERSION_CODE"
+          echo "Version Name (from package.json): $PACKAGE_VERSION"
+          echo "VERSION_CODE=$CALC_VERSION_CODE" >> $GITHUB_ENV
+          echo "VERSION_NAME=$PACKAGE_VERSION" >> $GITHUB_ENV
+
+      - name: Determine Target Play Track
+        id: target_track
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TRACK="${{ github.event.inputs.track }}"
+          elif [ "${{ github.event_name }}" = "release" ]; then
+            TRACK="production"
+          else
+            TRACK="internal"
+          fi
+          echo "Target Play Store Track: $TRACK"
+          echo "PLAY_TRACK=$TRACK" >> $GITHUB_ENV
+
+      - name: Build Android App Bundle (AAB)
+        run: |
+          cd android
+          chmod +x ./gradlew
+          ./gradlew bundleRelease -PversionCode=${{ env.VERSION_CODE }} -PversionName=${{ env.VERSION_NAME }}
+
+      - name: Sign Android App Bundle
+        id: sign_app
+        uses: r0adkll/sign-android-release@v1
+        if: env.HAS_KEYSTORE == 'true'
+        env:
+          HAS_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+        with:
+          releaseDirectory: android/app/build/outputs/bundle/release
+          signingKey: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          keyStorePassword: ${{ secrets.KEYSTORE_PASSWORD }}
+          alias: ${{ secrets.KEY_ALIAS }}
+          keyPassword: ${{ secrets.KEY_PASSWORD }}
+
+      - name: Locate Final Release Bundle
+        id: final_bundle
+        run: |
+          if [ -n "${{ steps.sign_app.outputs.signedReleaseFile }}" ]; then
+            BUNDLE_PATH="${{ steps.sign_app.outputs.signedReleaseFile }}"
+          else
+            BUNDLE_PATH="android/app/build/outputs/bundle/release/app-release.aab"
+          fi
+          echo "Bundle Path: $BUNDLE_PATH"
+          echo "BUNDLE_PATH=$BUNDLE_PATH" >> $GITHUB_ENV
+
+      - name: Upload Artifacts to GitHub Run
+        uses: actions/upload-artifact@v4
+        with:
+          name: ElectroLab-v${{ env.VERSION_NAME }}-build-${{ env.VERSION_CODE }}
+          path: ${{ env.BUNDLE_PATH }}
+          retention-days: 30
+
+      - name: Deploy Directly to Google Play Store
+        uses: r0adkll/upload-google-play@v1
+        if: env.HAS_PLAY_SECRET == 'true'
+        env:
+          HAS_PLAY_SECRET: ${{ secrets.PLAY_CONFIG_JSON != '' }}
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_CONFIG_JSON }}
+          packageName: com.royals.electolab
+          releaseFiles: ${{ env.BUNDLE_PATH }}
+          track: ${{ env.PLAY_TRACK }}
+          status: ${{ github.event.inputs.status || 'completed' }}
+          userFraction: ${{ github.event.inputs.user_fraction || '1.0' }}
+          whatsNewDirectory: android/app/src/main/play/release-notes
