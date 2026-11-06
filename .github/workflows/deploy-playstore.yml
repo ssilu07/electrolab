@@ -104,9 +104,20 @@ jobs:
         id: decode_keystore
         run: |
           if [ -n "$KEYSTORE_BASE64" ]; then
-            python3 -c "import base64, os; open('android/app/release.jks', 'wb').write(base64.b64decode(os.environ['KEYSTORE_BASE64'].strip()))"
+            python3 -c "
+import base64, os
+raw = os.environ.get('KEYSTORE_BASE64', '')
+clean = ''.join(raw.split())
+if clean:
+    missing = len(clean) % 4
+    if missing:
+        clean += '=' * (4 - missing)
+    data = base64.b64decode(clean)
+    with open('android/app/release.jks', 'wb') as f:
+        f.write(data)
+    print(f'Keystore decoded successfully: {len(data)} bytes')
+"
             if [ -s android/app/release.jks ]; then
-              echo "Keystore decoded successfully into android/app/release.jks"
               echo "HAS_KEYSTORE=true" >> $GITHUB_ENV
             else
               echo "Failed to decode keystore file"
