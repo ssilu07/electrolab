@@ -95,52 +95,48 @@ jobs:
           echo "Target Play Store Track: $TRACK"
           echo "PLAY_TRACK=$TRACK" >> $GITHUB_ENV
 
+      - name: Decode Release Keystore
+        id: decode_keystore
+        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+        run: |
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > android/app/release.jks
+          echo "Keystore decoded successfully."
+          echo "HAS_KEYSTORE=true" >> $GITHUB_ENV
+
       - name: Build Android App Bundle (AAB)
         run: |
           cd android
           chmod +x ./gradlew
-          ./gradlew bundleRelease -PversionCode=${{ env.VERSION_CODE }} -PversionName=${{ env.VERSION_NAME }}
-
-      - name: Sign Android App Bundle
-        id: sign_app
-        uses: r0adkll/sign-android-release@v1
-        if: env.HAS_KEYSTORE == 'true'
-        env:
-          HAS_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
-        with:
-          releaseDirectory: android/app/build/outputs/bundle/release
-          signingKey: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-          keyStorePassword: ${{ secrets.KEYSTORE_PASSWORD }}
-          alias: ${{ secrets.KEY_ALIAS }}
-          keyPassword: ${{ secrets.KEY_PASSWORD }}
-
-      - name: Locate Final Release Bundle
-        id: final_bundle
-        run: |
-          if [ -n "${{ steps.sign_app.outputs.signedReleaseFile }}" ]; then
-            BUNDLE_PATH="${{ steps.sign_app.outputs.signedReleaseFile }}"
+          if [ "$HAS_KEYSTORE" = "true" ]; then
+            echo "Building and signing release bundle with native Gradle signing..."
+            ./gradlew bundleRelease \
+              -PversionCode=${{ env.VERSION_CODE }} \
+              -PversionName=${{ env.VERSION_NAME }} \
+              -PRELEASE_STORE_FILE=release.jks \
+              -PRELEASE_STORE_PASSWORD="${{ secrets.KEYSTORE_PASSWORD }}" \
+              -PRELEASE_KEY_ALIAS="${{ secrets.KEY_ALIAS }}" \
+              -PRELEASE_KEY_PASSWORD="${{ secrets.KEY_PASSWORD }}"
           else
-            BUNDLE_PATH="android/app/build/outputs/bundle/release/app-release.aab"
+            echo "Building unsigned release bundle (no keystore provided in secrets)..."
+            ./gradlew bundleRelease \
+              -PversionCode=${{ env.VERSION_CODE }} \
+              -PversionName=${{ env.VERSION_NAME }}
           fi
-          echo "Bundle Path: $BUNDLE_PATH"
-          echo "BUNDLE_PATH=$BUNDLE_PATH" >> $GITHUB_ENV
 
       - name: Upload Artifacts to GitHub Run
         uses: actions/upload-artifact@v4
         with:
           name: ElectroLab-v${{ env.VERSION_NAME }}-build-${{ env.VERSION_CODE }}
-          path: ${{ env.BUNDLE_PATH }}
+          path: android/app/build/outputs/bundle/release/app-release.aab
           retention-days: 30
 
       - name: Deploy Directly to Google Play Store
+        if: ${{ secrets.PLAY_CONFIG_JSON != '' }}
         uses: r0adkll/upload-google-play@v1
-        if: env.HAS_PLAY_SECRET == 'true'
-        env:
-          HAS_PLAY_SECRET: ${{ secrets.PLAY_CONFIG_JSON != '' }}
         with:
           serviceAccountJsonPlainText: ${{ secrets.PLAY_CONFIG_JSON }}
           packageName: com.royals.electolab
-          releaseFiles: ${{ env.BUNDLE_PATH }}
+          releaseFiles: android/app/build/outputs/bundle/release/app-release.aab
           track: ${{ env.PLAY_TRACK }}
           status: ${{ github.event.inputs.status || 'completed' }}
           userFraction: ${{ github.event.inputs.user_fraction || '1.0' }}
