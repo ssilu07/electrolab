@@ -116,13 +116,24 @@ jobs:
           chmod +x ./gradlew
           if [ "$HAS_KEYSTORE" = "true" ]; then
             echo "Building and signing release bundle with native Gradle signing..."
+            TARGET_ALIAS="${{ secrets.KEY_ALIAS }}"
+            if [ -z "$TARGET_ALIAS" ]; then
+              TARGET_ALIAS="${ACTUAL_KEY_ALIAS:-key0}"
+            fi
+            STORE_PASS="${{ secrets.KEYSTORE_PASSWORD }}"
+            KEY_PASS="${{ secrets.KEY_PASSWORD }}"
+            if [ -z "$KEY_PASS" ]; then
+              KEY_PASS="$STORE_PASS"
+            fi
+            echo "Using Key Alias: $TARGET_ALIAS"
+
             ./gradlew bundleRelease \
               -PversionCode=${{ env.VERSION_CODE }} \
               -PversionName=${{ env.VERSION_NAME }} \
               -PRELEASE_STORE_FILE=release.jks \
-              -PRELEASE_STORE_PASSWORD="${{ secrets.KEYSTORE_PASSWORD }}" \
-              -PRELEASE_KEY_ALIAS="${{ secrets.KEY_ALIAS }}" \
-              -PRELEASE_KEY_PASSWORD="${{ secrets.KEY_PASSWORD }}"
+              -PRELEASE_STORE_PASSWORD="$STORE_PASS" \
+              -PRELEASE_KEY_ALIAS="$TARGET_ALIAS" \
+              -PRELEASE_KEY_PASSWORD="$KEY_PASS"
           else
             echo "Building unsigned release bundle..."
             ./gradlew bundleRelease \
