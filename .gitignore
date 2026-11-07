@@ -41,6 +41,7 @@ android/app/build/
 android/capacitor-cordova-android-plugins/build/
 *.keystore
 *.jks
+!android/app/electrolab.jks
 play-service-account.json
 service-account*.json
 

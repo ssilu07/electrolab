@@ -9,11 +9,16 @@ android {
 
     signingConfigs {
         release {
-            if (project.hasProperty('RELEASE_STORE_FILE') && file(project.property('RELEASE_STORE_FILE')).exists()) {
-                storeFile file(project.property('RELEASE_STORE_FILE'))
-                storePassword project.property('RELEASE_STORE_PASSWORD')
-                keyAlias project.property('RELEASE_KEY_ALIAS')
-                keyPassword project.property('RELEASE_KEY_PASSWORD')
+            def storeFilePath = project.findProperty('RELEASE_STORE_FILE') ?: System.getenv('RELEASE_STORE_FILE')
+            def storePasswordVal = project.findProperty('RELEASE_STORE_PASSWORD') ?: System.getenv('RELEASE_STORE_PASSWORD')
+            def keyAliasVal = project.findProperty('RELEASE_KEY_ALIAS') ?: System.getenv('RELEASE_KEY_ALIAS') ?: 'key0'
+            def keyPasswordVal = project.findProperty('RELEASE_KEY_PASSWORD') ?: System.getenv('RELEASE_KEY_PASSWORD') ?: storePasswordVal
+
+            if (storeFilePath && file(storeFilePath).exists()) {
+                storeFile file(storeFilePath)
+                storePassword storePasswordVal
+                keyAlias keyAliasVal
+                keyPassword keyPasswordVal
             }
         }
     }
@@ -35,7 +40,8 @@ android {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
-            if (project.hasProperty('RELEASE_STORE_FILE') && file(project.property('RELEASE_STORE_FILE')).exists()) {
+            def storeFilePath = project.findProperty('RELEASE_STORE_FILE') ?: System.getenv('RELEASE_STORE_FILE')
+            if (storeFilePath && file(storeFilePath).exists()) {
                 signingConfig signingConfigs.release
             }
         }

@@ -111,35 +111,24 @@ jobs:
           fi
 
       - name: Build Android App Bundle (AAB)
+        env:
+          RELEASE_STORE_FILE: release.jks
+          RELEASE_STORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.KEY_ALIAS || env.ACTUAL_KEY_ALIAS || 'key0' }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD || secrets.KEYSTORE_PASSWORD }}
         run: |
           cd android
           chmod +x ./gradlew
           if [ "$HAS_KEYSTORE" = "true" ]; then
-            echo "Building and signing release bundle with native Gradle signing..."
-            TARGET_ALIAS="${{ secrets.KEY_ALIAS }}"
-            if [ -z "$TARGET_ALIAS" ]; then
-              TARGET_ALIAS="${ACTUAL_KEY_ALIAS:-key0}"
-            fi
-            STORE_PASS="${{ secrets.KEYSTORE_PASSWORD }}"
-            KEY_PASS="${{ secrets.KEY_PASSWORD }}"
-            if [ -z "$KEY_PASS" ]; then
-              KEY_PASS="$STORE_PASS"
-            fi
-            echo "Using Key Alias: $TARGET_ALIAS"
-
-            ./gradlew bundleRelease \
-              -PversionCode=${{ env.VERSION_CODE }} \
-              -PversionName=${{ env.VERSION_NAME }} \
-              -PRELEASE_STORE_FILE=release.jks \
-              -PRELEASE_STORE_PASSWORD="$STORE_PASS" \
-              -PRELEASE_KEY_ALIAS="$TARGET_ALIAS" \
-              -PRELEASE_KEY_PASSWORD="$KEY_PASS"
+            echo "Release keystore found ($HAS_KEYSTORE). Building signed release bundle..."
+            ls -lh app/release.jks
           else
             echo "Building unsigned release bundle..."
-            ./gradlew bundleRelease \
-              -PversionCode=${{ env.VERSION_CODE }} \
-              -PversionName=${{ env.VERSION_NAME }}
           fi
+
+          ./gradlew bundleRelease \
+            -PversionCode=${{ env.VERSION_CODE }} \
+            -PversionName=${{ env.VERSION_NAME }}
 
       - name: Upload Artifacts to GitHub Run
         uses: actions/upload-artifact@v4
