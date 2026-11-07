@@ -111,6 +111,7 @@ export function App() {
   const draggingCompIdRef = useRef<string | null>(null);
   const dragCompOffsetRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const draggingProbeRef = useRef<'red' | 'black' | 'scope_ch1' | null>(null);
+  const screenSwitchCountRef = useRef<number>(0);
 
   // Instruments State
   const [multimeter, setMultimeter] = useState<MultimeterState>({
@@ -334,8 +335,22 @@ export function App() {
 
   const handleSelectScreen = useCallback((screen: MainNavScreen) => {
     setActiveScreen(screen);
-    // Non-intrusive interstitial with cooldown check
-    adService.showInterstitial().catch(() => {});
+
+    // Preload rewarded video when moving toward challenges
+    if (screen === 'challenges') {
+      adService.prepareRewarded().catch(() => {});
+    }
+
+    // High show rate optimization: Trigger interstitial only after meaningful exploration (>= 3 screen switches)
+    screenSwitchCountRef.current += 1;
+    if (screenSwitchCountRef.current >= 3) {
+      adService.showInterstitial().then((shown) => {
+        if (shown) {
+          screenSwitchCountRef.current = 0;
+        }
+      }).catch(() => {});
+    }
+
     if (screen === 'circuit') {
       setViewMode('workbench');
       setGameMode('sandbox');

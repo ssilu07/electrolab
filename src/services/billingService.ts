@@ -51,8 +51,42 @@ class BillingService {
   private isInitialized: boolean = false;
   private cachedPrice: string = BILLING_CONFIG.DEFAULT_SUB_PRICE;
   private listeners: ((isPro: boolean) => void)[] = [];
+  private tempProExpiry: number = 0;
+  private tempProTimer: any = null;
 
   public readonly PRODUCT_ID = BILLING_CONFIG.MONTHLY_SUB_ID;
+
+  constructor() {
+    this.restoreTempProState();
+  }
+
+  private restoreTempProState() {
+    try {
+      const saved = localStorage.getItem('electrolab_temp_pro_expiry');
+      if (saved) {
+        const expiry = parseInt(saved, 10);
+        if (!isNaN(expiry) && expiry > Date.now()) {
+          this.tempProExpiry = expiry;
+          this.scheduleTempProExpiry(expiry - Date.now());
+        } else {
+          localStorage.removeItem('electrolab_temp_pro_expiry');
+        }
+      }
+    } catch {
+      // ignore storage errors
+    }
+  }
+
+  private scheduleTempProExpiry(delayMs: number) {
+    if (this.tempProTimer) clearTimeout(this.tempProTimer);
+    this.tempProTimer = setTimeout(() => {
+      this.tempProExpiry = 0;
+      try {
+        localStorage.removeItem('electrolab_temp_pro_expiry');
+      } catch {}
+      this.updateProState(this.isRealPro);
+    }, Math.max(100, delayMs));
+  }
 
   public get priceDisplay(): string {
     return this.cachedPrice;
@@ -63,17 +97,55 @@ class BillingService {
    * Checks for both active subscriptions and lifetime purchases.
    */
   public async init(): Promise<boolean> {
-    const status = await this.checkProStatus();
+    await this.checkProStatus();
     this.isInitialized = true;
     
     // Attempt to load localized price from Google Play in background
     this.refreshProductDetails().catch(() => {});
     
-    return status.isPro;
+    return this.isPro;
   }
 
+  /**
+   * Pro is active if Google Play subscription/lifetime is valid OR temporary pass is active
+   */
   public get isPro(): boolean {
+    return this.isProCached || (this.tempProExpiry > Date.now());
+  }
+
+  /**
+   * Whether Pro is active permanently/subscription via Google Play
+   */
+  public get isRealPro(): boolean {
     return this.isProCached;
+  }
+
+  /**
+   * Whether user is on a temporary Rewarded Ad pass
+   */
+  public get isTemporaryPro(): boolean {
+    return !this.isProCached && (this.tempProExpiry > Date.now());
+  }
+
+  /**
+   * Remaining minutes on temporary Pro pass
+   */
+  public get tempProRemainingMinutes(): number {
+    if (!this.isTemporaryPro) return 0;
+    return Math.max(1, Math.ceil((this.tempProExpiry - Date.now()) / (60 * 1000)));
+  }
+
+  /**
+   * Grant temporary Pro pass (earned via Rewarded Video Ad)
+   */
+  public grantTemporaryPro(durationMinutes: number = 30): void {
+    const expiry = Date.now() + durationMinutes * 60 * 1000;
+    this.tempProExpiry = expiry;
+    try {
+      localStorage.setItem('electrolab_temp_pro_expiry', expiry.toString());
+    } catch {}
+    this.scheduleTempProExpiry(durationMinutes * 60 * 1000);
+    this.updateProState(true);
   }
 
   /**
@@ -186,16 +258,15 @@ class BillingService {
   }
 
   private updateProState(newVal: boolean) {
-    if (this.isProCached !== newVal || !this.isInitialized) {
-      this.isProCached = newVal;
-      this.listeners.forEach((listener) => {
-        try {
-          listener(newVal);
-        } catch (e) {
-          console.error('[BillingService] Listener error:', e);
-        }
-      });
-    }
+    this.isProCached = newVal;
+    const effectivePro = this.isPro;
+    this.listeners.forEach((listener) => {
+      try {
+        listener(effectivePro);
+      } catch (e) {
+        console.error('[BillingService] Listener error:', e);
+      }
+    });
   }
 
   /**
@@ -203,7 +274,7 @@ class BillingService {
    */
   public onProStatusChange(callback: (isPro: boolean) => void): () => void {
     this.listeners.push(callback);
-    callback(this.isProCached);
+    callback(this.isPro);
     return () => {
       this.listeners = this.listeners.filter((l) => l !== callback);
     };

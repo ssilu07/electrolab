@@ -11,9 +11,12 @@ import {
   X,
   Loader2,
   Ban,
+  Film,
+  Clock,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { billingService } from '../services/billingService';
+import { adService } from '../services/adService';
 import { soundFX } from '../audio/SoundFX';
 import { NativeBridge } from '../utils/nativeBridge';
 
@@ -29,15 +32,29 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({
   onSuccess,
 }) => {
   const [isPro, setIsPro] = useState(billingService.isPro);
+  const [isTempPro, setIsTempPro] = useState(billingService.isTemporaryPro);
+  const [tempMinutes, setTempMinutes] = useState(billingService.tempProRemainingMinutes);
   const [loading, setLoading] = useState(false);
+  const [adLoading, setAdLoading] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
   useEffect(() => {
     const unsub = billingService.onProStatusChange((pro) => {
       setIsPro(pro);
+      setIsTempPro(billingService.isTemporaryPro);
+      setTempMinutes(billingService.tempProRemainingMinutes);
     });
     return unsub;
   }, []);
+
+  // Preload rewarded video whenever modal opens
+  useEffect(() => {
+    if (isOpen) {
+      adService.prepareRewarded().catch(() => {});
+      setIsTempPro(billingService.isTemporaryPro);
+      setTempMinutes(billingService.tempProRemainingMinutes);
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -64,6 +81,33 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({
       setStatusMessage('Error: ' + (e?.message || 'Transaction failed'));
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleWatchRewardedAd = async () => {
+    soundFX.playClick();
+    NativeBridge.haptic('medium');
+    setAdLoading(true);
+    setStatusMessage('Loading sponsor video...');
+
+    try {
+      const earned = await adService.showRewardVideo();
+      if (earned) {
+        billingService.grantTemporaryPro(30);
+        soundFX.playVictory();
+        NativeBridge.haptic('success');
+        triggerCelebration();
+        setIsTempPro(true);
+        setTempMinutes(30);
+        setStatusMessage('🎉 30-Minute Pro Pass Active! Zero ads & all features unlocked.');
+        if (onSuccess) onSuccess();
+      } else {
+        setStatusMessage('Video was closed before completion. Watch fully to earn pass.');
+      }
+    } catch (err: any) {
+      setStatusMessage('Ad failed to load: ' + (err?.message || 'Please check connection.'));
+    } finally {
+      setAdLoading(false);
     }
   };
 
@@ -198,21 +242,43 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({
         )}
 
         {/* Action Button */}
-        {isPro ? (
+        {billingService.isRealPro ? (
           <div className="p-4 rounded-2xl bg-emerald-950/50 border border-emerald-500/30 text-center">
             <div className="flex items-center justify-center gap-1.5 text-emerald-400 font-bold text-sm">
               <CheckCircle2 className="w-5 h-5" />
               <span>ElectroLab Pro Active!</span>
             </div>
             <p className="text-[10px] text-slate-400 mt-1">
-              Zero Ads &bull; All features and laboratory instruments are unlocked.
+              Zero Ads &bull; All features and laboratory instruments are permanently unlocked.
             </p>
           </div>
         ) : (
-          <div className="space-y-2.5 pt-1">
+          <div className="space-y-3 pt-1">
+            {/* If Temporary Pro Pass is Active */}
+            {isTempPro && (
+              <div className="p-3 rounded-2xl bg-gradient-to-r from-amber-950/40 via-yellow-950/20 to-amber-950/40 border border-amber-500/40 text-center">
+                <div className="flex items-center justify-center gap-1.5 text-amber-300 font-bold text-xs">
+                  <Clock className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Temporary Pro Pass Active (~{tempMinutes}m left)</span>
+                </div>
+                <p className="text-[10px] text-slate-400 mt-0.5">
+                  Full access unlocked. Upgrade permanently below or add +30 mins.
+                </p>
+                <button
+                  onClick={handleWatchRewardedAd}
+                  disabled={adLoading || loading}
+                  className="mt-2 px-3 py-1 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 text-[11px] font-bold transition flex items-center justify-center gap-1 mx-auto"
+                >
+                  <Film className="w-3 h-3 text-amber-400" />
+                  <span>+30 Mins (Watch Video)</span>
+                </button>
+              </div>
+            )}
+
+            {/* Subscribe Monthly via Google Play */}
             <button
               onClick={handleSubscribe}
-              disabled={loading}
+              disabled={loading || adLoading}
               className="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-cyan-500 via-sky-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-extrabold text-sm tracking-wide shadow-lg shadow-cyan-500/30 active:scale-98 transition flex items-center justify-center gap-2 disabled:opacity-50"
             >
               {loading ? (
@@ -228,11 +294,38 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({
               )}
             </button>
 
+            {/* Rewarded Video Ad Option: Free 30-min Pro Pass */}
+            {!isTempPro && (
+              <div className="p-3 rounded-2xl bg-white/[0.03] border border-amber-500/30 flex items-center justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-amber-300">
+                    <Film className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Free 30-Min Pro Pass</span>
+                  </div>
+                  <p className="text-[10px] text-slate-400 mt-0.5">
+                    Watch 1 sponsor video to unlock all features
+                  </p>
+                </div>
+                <button
+                  onClick={handleWatchRewardedAd}
+                  disabled={adLoading || loading}
+                  className="shrink-0 px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-black text-xs shadow-md shadow-amber-500/25 active:scale-95 transition flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  {adLoading ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Zap className="w-3.5 h-3.5 fill-slate-950" />
+                  )}
+                  <span>Watch Free</span>
+                </button>
+              </div>
+            )}
+
             {/* Restore and Google Security note */}
-            <div className="flex items-center justify-between px-1 text-[11px] text-slate-400">
+            <div className="flex items-center justify-between px-1 text-[11px] text-slate-400 pt-1">
               <button
                 onClick={handleRestore}
-                disabled={loading}
+                disabled={loading || adLoading}
                 className="hover:text-cyan-400 transition flex items-center gap-1 font-mono"
               >
                 <RotateCcw className="w-3 h-3" />

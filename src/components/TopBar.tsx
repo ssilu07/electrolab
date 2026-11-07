@@ -3,6 +3,7 @@ import { ViewMode, GlassTheme } from '../types/circuit';
 import { GLASS_THEMES } from '../theme/glassTheme';
 import { soundFX } from '../audio/SoundFX';
 import { NativeBridge } from '../utils/nativeBridge';
+import { billingService } from '../services/billingService';
 import {
   Play,
   Pause,
@@ -106,10 +107,21 @@ export const TopBar: React.FC<TopBarProps> = ({
             <h1 className="font-extrabold text-xs sm:text-sm tracking-wider text-white flex items-center gap-1 leading-none">
               Electro<span className="text-cyan-400">Lab</span>
               {isPro ? (
-                <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-gradient-to-r from-amber-500/20 to-yellow-500/20 text-amber-300 font-mono border border-amber-500/40 ml-0.5 flex items-center gap-0.5">
-                  <Crown className="w-2.5 h-2.5 text-amber-400" />
-                  <span>PRO</span>
-                </span>
+                billingService.isTemporaryPro ? (
+                  <button
+                    onClick={onOpenProModal}
+                    className="text-[9px] px-1.5 py-0.5 rounded-md bg-gradient-to-r from-amber-500/20 to-yellow-500/20 text-amber-300 font-mono border border-amber-500/40 ml-0.5 flex items-center gap-0.5 hover:scale-105 transition"
+                    title="Temporary Pro Pass Active - Tap to extend"
+                  >
+                    <Crown className="w-2.5 h-2.5 text-amber-400" />
+                    <span>PRO (~{billingService.tempProRemainingMinutes}m)</span>
+                  </button>
+                ) : (
+                  <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-gradient-to-r from-amber-500/20 to-yellow-500/20 text-amber-300 font-mono border border-amber-500/40 ml-0.5 flex items-center gap-0.5">
+                    <Crown className="w-2.5 h-2.5 text-amber-400" />
+                    <span>PRO</span>
+                  </span>
+                )
               ) : (
                 <button
                   onClick={onOpenProModal}

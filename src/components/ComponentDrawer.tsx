@@ -115,14 +115,14 @@ export const ComponentDrawer: React.FC<ComponentDrawerProps> = ({ onSpawnCompone
                 draggable={true}
                 onDragStart={(e) => handleDragStart(e, comp.type)}
                 onClick={() => handleSpawn(comp.type)}
-                className={`group relative shrink-0 flex flex-col items-center justify-center p-2 rounded-2xl bg-slate-900/60 hover:bg-slate-800/80 border border-white/10 hover:border-cyan-400/60 shadow-lg cursor-grab active:cursor-grabbing select-none transition-all duration-200 active:scale-95 ${
-                  isExpanded ? 'w-full aspect-square' : 'w-20 h-22'
+                className={`group relative shrink-0 flex flex-col items-center justify-center p-2 rounded-2xl bg-slate-900/70 hover:bg-slate-800/90 border border-white/10 hover:border-cyan-400/80 shadow-lg cursor-grab active:cursor-grabbing select-none transition-all duration-200 active:scale-95 ${
+                  isExpanded ? 'w-full aspect-square' : 'w-20 h-24'
                 }`}
                 title={`${comp.name} — Tap to Add or Drag onto Board`}
               >
                 {/* 3D Component Icon */}
-                <div className="shrink-0 p-1 rounded-xl bg-black/40 border border-white/5 group-hover:border-cyan-400/30 transition shadow-inner">
-                  <ComponentIcon3D type={comp.type} size={36} />
+                <div className="shrink-0 p-1 rounded-xl bg-black/50 border border-white/5 group-hover:border-cyan-400/40 group-hover:shadow-[0_0_12px_rgba(6,182,212,0.3)] transition shadow-inner">
+                  <ComponentIcon3D type={comp.type} size={40} interactive={true} />
                 </div>
 
                 {/* Component Label */}

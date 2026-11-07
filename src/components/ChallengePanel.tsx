@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ChallengeLevel, CircuitComponent, CircuitWire, SimulationResult } from '../types/circuit';
 import { soundFX } from '../audio/SoundFX';
 import { NativeBridge } from '../utils/nativeBridge';
+import { adService } from '../services/adService';
 import confetti from 'canvas-confetti';
 import {
   Trophy,
@@ -13,8 +14,9 @@ import {
   Sparkles,
   ArrowRight,
   Check,
-  Lock,
   Crown,
+  Film,
+  Loader2,
 } from 'lucide-react';
 
 interface ChallengePanelProps {
@@ -46,6 +48,33 @@ export const ChallengePanel: React.FC<ChallengePanelProps> = ({
   const [hintIndex, setHintIndex] = useState(0);
   const [hasTriggeredVictory, setHasTriggeredVictory] = useState(false);
   const [showVictoryModal, setShowVictoryModal] = useState(false);
+  const [isWatchingAd, setIsWatchingAd] = useState(false);
+
+  // Preload rewarded video when challenge mode is open
+  useEffect(() => {
+    adService.prepareRewarded().catch(() => {});
+  }, [currentLevelIndex]);
+
+  // Handle Watch Ad to Unlock Next Level
+  const handleWatchAdToUnlock = async () => {
+    soundFX.playClick();
+    NativeBridge.haptic('medium');
+    setIsWatchingAd(true);
+
+    try {
+      const earned = await adService.showRewardVideo();
+      if (earned) {
+        soundFX.playVictory();
+        NativeBridge.haptic('success');
+        setShowVictoryModal(false);
+        onNextLevel();
+      }
+    } catch (e) {
+      console.warn('Ad error:', e);
+    } finally {
+      setIsWatchingAd(false);
+    }
+  };
 
   // Evaluate validation criteria live
   const validation = level.validate(simulation, components, wires);
@@ -307,16 +336,36 @@ export const ChallengePanel: React.FC<ChallengePanelProps> = ({
             <div className="pt-2 flex flex-col gap-2">
               {hasNextLevel ? (
                 currentLevelIndex >= 1 && !isPro ? (
-                  <button
-                    onClick={() => {
-                      setShowVictoryModal(false);
-                      if (onOpenProModal) onOpenProModal();
-                    }}
-                    className="w-full py-3 rounded-2xl bg-gradient-to-r from-amber-500 via-yellow-500 to-amber-600 text-slate-950 font-black text-sm shadow-xl shadow-amber-500/30 hover:scale-[1.02] active:scale-95 transition flex items-center justify-center gap-2"
-                  >
-                    <Crown className="w-4 h-4 fill-slate-950" />
-                    <span>Unlock Pro for Remaining Levels</span>
-                  </button>
+                  <>
+                    <button
+                      onClick={handleWatchAdToUnlock}
+                      disabled={isWatchingAd}
+                      className="w-full py-3 rounded-2xl bg-gradient-to-r from-cyan-400 via-sky-500 to-blue-600 text-slate-950 font-black text-sm shadow-xl shadow-cyan-500/30 hover:scale-[1.02] active:scale-95 transition flex items-center justify-center gap-2 disabled:opacity-50"
+                    >
+                      {isWatchingAd ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <span>Loading Sponsor Video...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Film className="w-4 h-4 text-slate-950" />
+                          <span>Watch Video to Play Next Level (Free)</span>
+                        </>
+                      )}
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setShowVictoryModal(false);
+                        if (onOpenProModal) onOpenProModal();
+                      }}
+                      className="w-full py-2.5 rounded-2xl bg-gradient-to-r from-amber-500/20 via-yellow-500/20 to-amber-500/20 text-amber-300 border border-amber-500/40 font-bold text-xs hover:bg-amber-500/30 active:scale-95 transition flex items-center justify-center gap-2"
+                    >
+                      <Crown className="w-3.5 h-3.5 text-amber-400" />
+                      <span>Or Unlock All Levels with Pro</span>
+                    </button>
+                  </>
                 ) : (
                   <button
                     onClick={() => {

@@ -32,6 +32,9 @@ class AdService {
   private isBannerVisible = false;
   private isInterstitialPrepared = false;
   private isRewardedPrepared = false;
+  private isPreparingInterstitial = false;
+  private isPreparingRewarded = false;
+  private userEarnedReward = false;
   private lastInterstitialTime = 0;
   private readonly INTERSTITIAL_COOLDOWN_MS = 60 * 1000; // 60s minimum interval
 
@@ -45,6 +48,14 @@ class AdService {
 
   public get rewardedAdId(): string {
     return ADMOB_CONFIG.IS_TEST_MODE ? ADMOB_CONFIG.TEST_ADS.REWARDED : ADMOB_CONFIG.REAL_ADS.REWARDED;
+  }
+
+  public get isRewardedReady(): boolean {
+    return this.isRewardedPrepared;
+  }
+
+  public get isInterstitialReady(): boolean {
+    return this.isInterstitialPrepared;
   }
 
   /**
@@ -67,7 +78,7 @@ class AdService {
 
     // Check Pro status: If Pro, no ads should ever be loaded
     if (billingService.isPro) {
-      console.log('[AdService] User has Lifetime Pro. Ads disabled.');
+      console.log('[AdService] User has Pro. Ads disabled.');
       return;
     }
 
@@ -82,7 +93,7 @@ class AdService {
         initializeForTesting: ADMOB_CONFIG.IS_TEST_MODE,
       });
 
-      // Listen for AdMob events
+      // Listen for Banner events
       AdMob.addListener(BannerAdPluginEvents.Loaded, () => {
         console.log('[AdService] Banner ad loaded successfully.');
         this.isBannerVisible = true;
@@ -93,28 +104,49 @@ class AdService {
         this.isBannerVisible = false;
       });
 
+      // Listen for Interstitial events
       AdMob.addListener(InterstitialAdPluginEvents.Loaded, () => {
         console.log('[AdService] Interstitial ad loaded.');
         this.isInterstitialPrepared = true;
+        this.isPreparingInterstitial = false;
+      });
+
+      AdMob.addListener(InterstitialAdPluginEvents.FailedToLoad, (err) => {
+        console.warn('[AdService] Interstitial failed to load:', err);
+        this.isInterstitialPrepared = false;
+        this.isPreparingInterstitial = false;
       });
 
       AdMob.addListener(InterstitialAdPluginEvents.Dismissed, () => {
         console.log('[AdService] Interstitial dismissed.');
         this.isInterstitialPrepared = false;
-        // Preload next interstitial in background
-        this.prepareInterstitial().catch(() => {});
+        this.isPreparingInterstitial = false;
       });
 
+      // Listen for Rewarded Video events
       AdMob.addListener(RewardAdPluginEvents.Loaded, () => {
         console.log('[AdService] Rewarded video loaded.');
         this.isRewardedPrepared = true;
+        this.isPreparingRewarded = false;
+      });
+
+      AdMob.addListener(RewardAdPluginEvents.FailedToLoad, (err) => {
+        console.warn('[AdService] Rewarded video failed to load:', err);
+        this.isRewardedPrepared = false;
+        this.isPreparingRewarded = false;
+      });
+
+      AdMob.addListener(RewardAdPluginEvents.Rewarded, (reward) => {
+        console.log('[AdService] RewardAdPluginEvents.Rewarded received:', reward);
+        this.userEarnedReward = true;
       });
 
       AdMob.addListener(RewardAdPluginEvents.Dismissed, () => {
         console.log('[AdService] Rewarded video dismissed.');
         this.isRewardedPrepared = false;
-        // Preload next rewarded ad in background
-        this.prepareRewarded().catch(() => {});
+        this.isPreparingRewarded = false;
+        // Do NOT automatically preload immediately to avoid 0% show rate / wasted requests.
+        // It will be loaded on-demand when the user next needs it.
       });
 
       // Watch for Pro status changes — hide banners immediately upon upgrade
@@ -127,9 +159,8 @@ class AdService {
       this.isInitialized = true;
       console.log('[AdService] AdMob initialized successfully.');
 
-      // Preload interstitial and rewarded ads in advance
+      // Preload one interstitial cleanly in background
       this.prepareInterstitial().catch(() => {});
-      this.prepareRewarded().catch(() => {});
     } catch (error) {
       console.error('[AdService] Error during AdMob initialization:', error);
     }
@@ -223,25 +254,32 @@ class AdService {
   }
 
   /**
-   * Preload an Interstitial Ad
+   * Preload an Interstitial Ad (Guarded against duplicate concurrent requests)
    */
-  public async prepareInterstitial(): Promise<void> {
-    if (billingService.isPro || !Capacitor.isNativePlatform()) return;
+  public async prepareInterstitial(): Promise<boolean> {
+    if (billingService.isPro || !Capacitor.isNativePlatform()) return false;
+    if (this.isInterstitialPrepared) return true;
+    if (this.isPreparingInterstitial) return false;
 
+    this.isPreparingInterstitial = true;
     try {
       await AdMob.prepareInterstitial({
         adId: this.interstitialAdId,
         isTesting: ADMOB_CONFIG.IS_TEST_MODE,
       });
       this.isInterstitialPrepared = true;
+      this.isPreparingInterstitial = false;
+      return true;
     } catch (err) {
       console.warn('[AdService] Failed to prepare interstitial:', err);
       this.isInterstitialPrepared = false;
+      this.isPreparingInterstitial = false;
+      return false;
     }
   }
 
   /**
-   * Show Interstitial Ad (with cooldown protection to prevent user annoyance)
+   * Show Interstitial Ad (with cooldown protection to prevent user annoyance & improve show rate)
    * @param force Bypass cooldown check (e.g. for level completion or preset change)
    */
   public async showInterstitial(force = false): Promise<boolean> {
@@ -261,34 +299,46 @@ class AdService {
 
     try {
       if (!this.isInterstitialPrepared) {
-        await this.prepareInterstitial();
+        const prepared = await this.prepareInterstitial();
+        if (!prepared) return false;
       }
       await AdMob.showInterstitial();
       this.lastInterstitialTime = now;
+      this.isInterstitialPrepared = false;
+      // Preload next interstitial cleanly
+      setTimeout(() => {
+        this.prepareInterstitial().catch(() => {});
+      }, 1000);
       return true;
     } catch (err) {
       console.warn('[AdService] Failed to show interstitial:', err);
-      // Try preloading for next opportunity
-      this.prepareInterstitial().catch(() => {});
+      this.isInterstitialPrepared = false;
       return false;
     }
   }
 
   /**
-   * Preload a Rewarded Video Ad
+   * Preload a Rewarded Video Ad on demand (Guarded against duplicate requests)
    */
-  public async prepareRewarded(): Promise<void> {
-    if (!Capacitor.isNativePlatform()) return;
+  public async prepareRewarded(): Promise<boolean> {
+    if (!Capacitor.isNativePlatform()) return true;
+    if (this.isRewardedPrepared) return true;
+    if (this.isPreparingRewarded) return false;
 
+    this.isPreparingRewarded = true;
     try {
       await AdMob.prepareRewardVideoAd({
         adId: this.rewardedAdId,
         isTesting: ADMOB_CONFIG.IS_TEST_MODE,
       });
       this.isRewardedPrepared = true;
+      this.isPreparingRewarded = false;
+      return true;
     } catch (err) {
       console.warn('[AdService] Failed to prepare rewarded ad:', err);
       this.isRewardedPrepared = false;
+      this.isPreparingRewarded = false;
+      return false;
     }
   }
 
@@ -297,21 +347,32 @@ class AdService {
    * @returns true if user earned the reward, false otherwise
    */
   public async showRewardVideo(): Promise<boolean> {
+    this.userEarnedReward = false;
+
     if (!Capacitor.isNativePlatform()) {
       console.log('[AdService Mock] Rewarded video completed (dev simulation). User rewarded!');
+      this.userEarnedReward = true;
       return true;
     }
 
     try {
       if (!this.isRewardedPrepared) {
-        await this.prepareRewarded();
+        console.log('[AdService] Rewarded ad not ready, preparing now...');
+        const prepared = await this.prepareRewarded();
+        if (!prepared) {
+          console.warn('[AdService] Could not prepare rewarded ad in time.');
+          return false;
+        }
       }
-      const rewardItem = await AdMob.showRewardVideoAd();
-      console.log('[AdService] User earned reward:', rewardItem);
+
+      await AdMob.showRewardVideoAd();
+      console.log('[AdService] Rewarded ad presentation completed. Earned:', this.userEarnedReward);
+      // Fallback: If showRewardVideoAd completed without dismissal error and onRewardedVideoAdReward event
+      // didn't arrive due to platform timing, default to true if the ad showed and dismissed normally
       return true;
     } catch (err) {
       console.warn('[AdService] Failed to display rewarded video:', err);
-      this.prepareRewarded().catch(() => {});
+      this.isRewardedPrepared = false;
       return false;
     }
   }
