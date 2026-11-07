@@ -143,6 +143,5 @@ jobs:
           packageName: com.royals.electolab
           releaseFiles: android/app/build/outputs/bundle/release/app-release.aab
           track: ${{ env.PLAY_TRACK }}
-          status: ${{ github.event.inputs.status || 'completed' }}
-          userFraction: ${{ github.event.inputs.user_fraction || '1.0' }}
+          status: completed
           whatsNewDirectory: android/app/src/main/play/release-notes
