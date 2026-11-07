@@ -144,4 +144,5 @@ jobs:
           releaseFiles: android/app/build/outputs/bundle/release/app-release.aab
           track: ${{ env.PLAY_TRACK }}
           status: completed
-          whatsNewDirectory: android/app/src/main/play/release-notes
+          releaseName: ElectroLab v${{ env.VERSION_NAME }} (Build ${{ env.VERSION_CODE }})
+          whatsNewDirectory: distribution/whatsnew
