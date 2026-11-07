@@ -275,10 +275,10 @@ export const TopBar: React.FC<TopBarProps> = ({
                   </div>
                   <div>
                     <span className="text-xs font-bold text-white block">
-                      {isPro ? 'ElectroLab Lifetime PRO' : 'Upgrade to Pro'}
+                      {isPro ? 'ElectroLab PRO Active' : 'Upgrade to Pro'}
                     </span>
                     <span className="text-[10px] text-slate-400">
-                      {isPro ? 'Verified via Google Play' : '₹600 One-Time • All Puzzles & Tools'}
+                      {isPro ? 'Zero Ads • All Features Unlocked' : 'Zero Ads • All Puzzles & Pro Tools'}
                     </span>
                   </div>
                 </div>

@@ -52,8 +52,8 @@ class PlayStoreService {
   private cachedUpdateInfo: UpdateCheckResult | null = null;
   private cachedVersionInfo: AppVersionInfo = {
     packageName: 'com.royals.electolab',
-    versionName: '1.0.2',
-    versionCode: 3,
+    versionName: '1.0.3',
+    versionCode: 4,
   };
 
   private updateListeners: ((info: UpdateCheckResult) => void)[] = [];

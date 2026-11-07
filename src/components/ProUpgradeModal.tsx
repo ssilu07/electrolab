@@ -10,7 +10,7 @@ import {
   Layers,
   X,
   Loader2,
-  ExternalLink,
+  Ban,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { billingService } from '../services/billingService';
@@ -41,24 +41,24 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handlePurchase = async () => {
+  const handleSubscribe = async () => {
     soundFX.playClick();
     NativeBridge.haptic('medium');
     setLoading(true);
-    setStatusMessage('Connecting to Google Play...');
+    setStatusMessage('Connecting to Google Play Subscription...');
 
     try {
-      const result = await billingService.purchasePro();
+      const result = await billingService.subscribeMonthly();
       if (result.success && result.isPro) {
         soundFX.playVictory();
         NativeBridge.haptic('success');
         triggerCelebration();
-        setStatusMessage('Pro Activated! Thank you for supporting ElectroLab.');
+        setStatusMessage('Subscription Active! All ads removed & features unlocked.');
         if (onSuccess) onSuccess();
       } else if (result.canceled) {
-        setStatusMessage('Purchase canceled.');
+        setStatusMessage('Subscription canceled.');
       } else {
-        setStatusMessage(result.message || 'Purchase could not be verified.');
+        setStatusMessage(result.message || 'Subscription could not be verified.');
       }
     } catch (e: any) {
       setStatusMessage('Error: ' + (e?.message || 'Transaction failed'));
@@ -71,7 +71,7 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({
     soundFX.playClick();
     NativeBridge.haptic('light');
     setLoading(true);
-    setStatusMessage('Checking purchase history with Google Play...');
+    setStatusMessage('Checking active subscriptions on Google Play...');
 
     try {
       const res = await billingService.restorePurchases();
@@ -79,10 +79,10 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({
         soundFX.playVictory();
         NativeBridge.haptic('success');
         triggerCelebration();
-        setStatusMessage('Active Pro License Restored!');
+        setStatusMessage('Active Pro Subscription Restored!');
         if (onSuccess) onSuccess();
       } else {
-        setStatusMessage('No active Pro license found for this Google account.');
+        setStatusMessage('No active subscription found for this Google account.');
       }
     } catch (e: any) {
       setStatusMessage('Restore failed: ' + (e?.message || 'Network error'));
@@ -137,7 +137,7 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({
             Electro<span className="text-cyan-400">Lab</span> PRO
           </h2>
           <p className="text-xs text-slate-400 mt-1">
-            Unlock Full Engineering Potential &bull; One-Time Lifetime Access
+            Zero Ads &bull; Unlock All Engineering Instruments & Challenges
           </p>
         </div>
 
@@ -145,10 +145,16 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({
         <div className="space-y-2.5 my-4">
           {[
             {
+              icon: Ban,
+              color: 'text-rose-400',
+              title: '100% Ad-Free Experience',
+              desc: 'Completely removes banner and interstitial pop-up ads',
+            },
+            {
               icon: Zap,
               color: 'text-amber-400',
-              title: 'All Circuit Puzzles & Solutions',
-              desc: 'Instant access to all current and upcoming challenge levels',
+              title: 'All Circuit Puzzles & Challenges',
+              desc: 'Instant access to all current and upcoming puzzle levels',
             },
             {
               icon: Cpu,
@@ -161,12 +167,6 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({
               color: 'text-emerald-400',
               title: 'Unlimited Custom Presets',
               desc: 'Save and export unlimited complex circuit blueprints',
-            },
-            {
-              icon: ShieldCheck,
-              color: 'text-sky-400',
-              title: 'Official Google Play Security',
-              desc: 'Syncs across your devices with your Google Play Account',
             },
           ].map((item, idx) => {
             const Icon = item.icon;
@@ -202,28 +202,28 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({
           <div className="p-4 rounded-2xl bg-emerald-950/50 border border-emerald-500/30 text-center">
             <div className="flex items-center justify-center gap-1.5 text-emerald-400 font-bold text-sm">
               <CheckCircle2 className="w-5 h-5" />
-              <span>You have Lifetime Pro Access!</span>
+              <span>ElectroLab Pro Active!</span>
             </div>
             <p className="text-[10px] text-slate-400 mt-1">
-              All features and laboratory instruments are unlocked.
+              Zero Ads &bull; All features and laboratory instruments are unlocked.
             </p>
           </div>
         ) : (
           <div className="space-y-2.5 pt-1">
             <button
-              onClick={handlePurchase}
+              onClick={handleSubscribe}
               disabled={loading}
               className="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-cyan-500 via-sky-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-extrabold text-sm tracking-wide shadow-lg shadow-cyan-500/30 active:scale-98 transition flex items-center justify-center gap-2 disabled:opacity-50"
             >
               {loading ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin text-slate-950" />
-                  <span>Processing...</span>
+                  <span>Connecting to Google Play...</span>
                 </>
               ) : (
                 <>
                   <Sparkles className="w-4 h-4 fill-slate-950" />
-                  <span>Unlock Lifetime Pro &bull; {billingService.PRICE_DISPLAY}</span>
+                  <span>Subscribe to Pro &bull; {billingService.priceDisplay}</span>
                 </>
               )}
             </button>
@@ -236,7 +236,7 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({
                 className="hover:text-cyan-400 transition flex items-center gap-1 font-mono"
               >
                 <RotateCcw className="w-3 h-3" />
-                <span>Restore Purchase</span>
+                <span>Restore Subscription</span>
               </button>
               <span className="flex items-center gap-1 text-[10px] text-slate-500">
                 <ShieldCheck className="w-3 h-3 text-emerald-400" />
@@ -248,7 +248,7 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({
 
         {/* Footer Guarantee */}
         <p className="text-[10px] text-slate-500 text-center mt-4">
-          One-time payment. No recurring subscription. Valid across all your Android devices.
+          Cancel anytime easily via Google Play Store subscriptions. Syncs across all devices.
         </p>
       </div>
     </div>

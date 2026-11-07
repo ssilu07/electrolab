@@ -7,7 +7,6 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.android.billingclient.api.AcknowledgePurchaseParams;
-import com.android.billingclient.api.AcknowledgePurchaseResponseListener;
 import com.android.billingclient.api.BillingClient;
 import com.android.billingclient.api.BillingClient.BillingResponseCode;
 import com.android.billingclient.api.BillingClient.ProductType;
@@ -16,9 +15,7 @@ import com.android.billingclient.api.BillingFlowParams;
 import com.android.billingclient.api.BillingResult;
 import com.android.billingclient.api.PendingPurchasesParams;
 import com.android.billingclient.api.ProductDetails;
-import com.android.billingclient.api.ProductDetailsResponseListener;
 import com.android.billingclient.api.Purchase;
-import com.android.billingclient.api.PurchasesResponseListener;
 import com.android.billingclient.api.PurchasesUpdatedListener;
 import com.android.billingclient.api.QueryProductDetailsParams;
 import com.android.billingclient.api.QueryPurchasesParams;
@@ -35,8 +32,8 @@ import java.util.List;
 /**
  * Google Play Billing v8.x Native Plugin for ElectroLab
  * Features:
- * - Real-time Google Play purchase validation (Play Billing 8.0.0+)
- * - Automatic Pro revocation on Refund (queryPurchasesAsync)
+ * - Subscriptions (electrolab_sub_monthly) + One-Time Lifetime support
+ * - Automatic Pro revocation on Subscription cancel / expiration / refund
  * - Purchase acknowledgment (prevents auto-refund after 3 days)
  * - Auto service reconnection
  * - Safe fallback for offline or debug testing
@@ -44,6 +41,7 @@ import java.util.List;
 @CapacitorPlugin(name = "GoogleBilling")
 public class BillingPlugin extends Plugin implements PurchasesUpdatedListener {
     private static final String TAG = "GoogleBilling";
+    public static final String PRODUCT_PRO_MONTHLY = "electrolab_sub_monthly";
     public static final String PRODUCT_PRO_LIFETIME = "electrolab_pro_lifetime";
 
     private BillingClient billingClient;
@@ -57,12 +55,14 @@ public class BillingPlugin extends Plugin implements PurchasesUpdatedListener {
     }
 
     private void initBillingClient() {
+        PendingPurchasesParams pendingPurchasesParams = PendingPurchasesParams.newBuilder()
+                .enableOneTimeProducts()
+                .build();
+
         billingClient = BillingClient.newBuilder(getContext())
                 .setListener(this)
                 .enableAutoServiceReconnection()
-                .enablePendingPurchases(
-                    PendingPurchasesParams.newBuilder().enableOneTimeProducts().build()
-                )
+                .enablePendingPurchases(pendingPurchasesParams)
                 .build();
 
         startBillingConnection(null);
@@ -112,57 +112,101 @@ public class BillingPlugin extends Plugin implements PurchasesUpdatedListener {
     }
 
     /**
-     * Check if user currently owns Pro.
-     * Google automatically removes refunded items from queryPurchasesAsync!
-     * So if a refund occurred, isPro will be returned as false.
+     * Check if user currently has an active subscription or lifetime license.
+     * Checks both ProductType.SUBS and ProductType.INAPP.
      */
     @PluginMethod
     public void checkProStatus(final PluginCall call) {
         ensureConnection(() -> {
-            QueryPurchasesParams queryParams = QueryPurchasesParams.newBuilder()
-                    .setProductType(ProductType.INAPP)
+            // 1. First check active subscriptions (ProductType.SUBS)
+            QueryPurchasesParams subParams = QueryPurchasesParams.newBuilder()
+                    .setProductType(ProductType.SUBS)
                     .build();
 
-            billingClient.queryPurchasesAsync(queryParams, (billingResult, purchases) -> {
-                JSObject ret = new JSObject();
-                if (billingResult.getResponseCode() == BillingResponseCode.OK && purchases != null) {
-                    boolean hasActivePro = false;
-                    String orderId = "";
-                    String purchaseToken = "";
+            billingClient.queryPurchasesAsync(subParams, (subResult, subPurchases) -> {
+                boolean hasActiveSub = false;
+                String orderId = "";
+                String purchaseToken = "";
+                String activeProduct = "";
 
-                    for (Purchase purchase : purchases) {
-                        // Check if product matches and is currently in PURCHASED state
-                        if (purchase.getProducts().contains(PRODUCT_PRO_LIFETIME) &&
-                                purchase.getPurchaseState() == Purchase.PurchaseState.PURCHASED) {
-                            hasActivePro = true;
-                            orderId = purchase.getOrderId() != null ? purchase.getOrderId() : "";
-                            purchaseToken = purchase.getPurchaseToken();
+                if (subResult.getResponseCode() == BillingResponseCode.OK && subPurchases != null) {
+                    for (Purchase purchase : subPurchases) {
+                        if (purchase.getPurchaseState() == Purchase.PurchaseState.PURCHASED) {
+                            for (String prodId : purchase.getProducts()) {
+                                if (prodId.equals(PRODUCT_PRO_MONTHLY) || prodId.contains("sub") || prodId.contains("pro")) {
+                                    hasActiveSub = true;
+                                    orderId = purchase.getOrderId() != null ? purchase.getOrderId() : "";
+                                    purchaseToken = purchase.getPurchaseToken();
+                                    activeProduct = prodId;
 
-                            // Acknowledge if not acknowledged yet to prevent Google auto-refund
-                            if (!purchase.isAcknowledged()) {
-                                acknowledgePurchase(purchase.getPurchaseToken());
+                                    if (!purchase.isAcknowledged()) {
+                                        acknowledgePurchase(purchase.getPurchaseToken());
+                                    }
+                                    break;
+                                }
                             }
-                            break;
+                        }
+                        if (hasActiveSub) break;
+                    }
+                }
+
+                if (hasActiveSub) {
+                    JSObject ret = new JSObject();
+                    ret.put("isPro", true);
+                    ret.put("isSubscription", true);
+                    ret.put("orderId", orderId);
+                    ret.put("purchaseToken", purchaseToken);
+                    ret.put("productId", activeProduct);
+                    call.resolve(ret);
+                    return;
+                }
+
+                // 2. Fallback: check one-time in-app purchases (ProductType.INAPP)
+                QueryPurchasesParams inappParams = QueryPurchasesParams.newBuilder()
+                        .setProductType(ProductType.INAPP)
+                        .build();
+
+                billingClient.queryPurchasesAsync(inappParams, (inappResult, inappPurchases) -> {
+                    boolean hasActiveInapp = false;
+                    String inappOrderId = "";
+                    String inappPurchaseToken = "";
+                    String inappProduct = "";
+
+                    if (inappResult.getResponseCode() == BillingResponseCode.OK && inappPurchases != null) {
+                        for (Purchase purchase : inappPurchases) {
+                            if (purchase.getPurchaseState() == Purchase.PurchaseState.PURCHASED) {
+                                for (String prodId : purchase.getProducts()) {
+                                    if (prodId.equals(PRODUCT_PRO_LIFETIME) || prodId.contains("lifetime") || prodId.contains("pro")) {
+                                        hasActiveInapp = true;
+                                        inappOrderId = purchase.getOrderId() != null ? purchase.getOrderId() : "";
+                                        inappPurchaseToken = purchase.getPurchaseToken();
+                                        inappProduct = prodId;
+
+                                        if (!purchase.isAcknowledged()) {
+                                            acknowledgePurchase(purchase.getPurchaseToken());
+                                        }
+                                        break;
+                                    }
+                                }
+                            }
+                            if (hasActiveInapp) break;
                         }
                     }
 
-                    ret.put("isPro", hasActivePro);
-                    ret.put("orderId", orderId);
-                    ret.put("purchaseToken", purchaseToken);
-                    ret.put("productId", PRODUCT_PRO_LIFETIME);
+                    JSObject ret = new JSObject();
+                    ret.put("isPro", hasActiveInapp);
+                    ret.put("isSubscription", false);
+                    ret.put("orderId", inappOrderId);
+                    ret.put("purchaseToken", inappPurchaseToken);
+                    ret.put("productId", inappProduct);
                     call.resolve(ret);
-                } else {
-                    ret.put("isPro", false);
-                    ret.put("code", billingResult.getResponseCode());
-                    ret.put("message", billingResult.getDebugMessage());
-                    call.resolve(ret);
-                }
+                });
             });
         }, call);
     }
 
     /**
-     * Initiate Google Play Purchase Flow
+     * Initiate Google Play Purchase Flow (supports both Subscription and One-Time products)
      */
     @PluginMethod
     public void purchasePro(final PluginCall call) {
@@ -172,12 +216,17 @@ public class BillingPlugin extends Plugin implements PurchasesUpdatedListener {
             return;
         }
 
+        final String productId = call.getString("productId", PRODUCT_PRO_MONTHLY);
+        final String productTypeStr = call.getString("productType", "subs");
+        final boolean isSubscription = "subs".equalsIgnoreCase(productTypeStr) || PRODUCT_PRO_MONTHLY.equals(productId);
+        final String playProductType = isSubscription ? ProductType.SUBS : ProductType.INAPP;
+
         ensureConnection(() -> {
             List<QueryProductDetailsParams.Product> productList = new ArrayList<>();
             productList.add(
                     QueryProductDetailsParams.Product.newBuilder()
-                            .setProductId(PRODUCT_PRO_LIFETIME)
-                            .setProductType(ProductType.INAPP)
+                            .setProductId(productId)
+                            .setProductType(playProductType)
                             .build()
             );
 
@@ -190,12 +239,25 @@ public class BillingPlugin extends Plugin implements PurchasesUpdatedListener {
                 if (billingResult.getResponseCode() == BillingResponseCode.OK && productDetailsList != null && !productDetailsList.isEmpty()) {
                     ProductDetails productDetails = productDetailsList.get(0);
 
+                    BillingFlowParams.ProductDetailsParams.Builder detailsBuilder =
+                            BillingFlowParams.ProductDetailsParams.newBuilder()
+                                    .setProductDetails(productDetails);
+
+                    if (isSubscription) {
+                        List<ProductDetails.SubscriptionOfferDetails> offerDetails = productDetails.getSubscriptionOfferDetails();
+                        if (offerDetails != null && !offerDetails.isEmpty()) {
+                            detailsBuilder.setOfferToken(offerDetails.get(0).getOfferToken());
+                        } else {
+                            JSObject err = new JSObject();
+                            err.put("success", false);
+                            err.put("message", "No active subscription offer available for " + productId);
+                            call.resolve(err);
+                            return;
+                        }
+                    }
+
                     List<BillingFlowParams.ProductDetailsParams> productDetailsParamsList =
-                            Collections.singletonList(
-                                    BillingFlowParams.ProductDetailsParams.newBuilder()
-                                            .setProductDetails(productDetails)
-                                            .build()
-                            );
+                            Collections.singletonList(detailsBuilder.build());
 
                     BillingFlowParams billingFlowParams = BillingFlowParams.newBuilder()
                             .setProductDetailsParamsList(productDetailsParamsList)
@@ -206,7 +268,7 @@ public class BillingPlugin extends Plugin implements PurchasesUpdatedListener {
                 } else {
                     JSObject err = new JSObject();
                     err.put("success", false);
-                    err.put("message", "Product not found on Play Console: " + PRODUCT_PRO_LIFETIME + " (" + billingResult.getDebugMessage() + ")");
+                    err.put("message", "Product not found on Play Console: " + productId + " (" + billingResult.getDebugMessage() + ")");
                     call.resolve(err);
                 }
             });
@@ -214,7 +276,58 @@ public class BillingPlugin extends Plugin implements PurchasesUpdatedListener {
     }
 
     /**
-     * Restore purchases (checks existing purchases from Google Play)
+     * Fetch real-time localized price & title from Google Play
+     */
+    @PluginMethod
+    public void getProductDetails(final PluginCall call) {
+        final String productId = call.getString("productId", PRODUCT_PRO_MONTHLY);
+        final String productTypeStr = call.getString("productType", "subs");
+        final boolean isSubscription = "subs".equalsIgnoreCase(productTypeStr);
+
+        ensureConnection(() -> {
+            List<QueryProductDetailsParams.Product> productList = new ArrayList<>();
+            productList.add(
+                    QueryProductDetailsParams.Product.newBuilder()
+                            .setProductId(productId)
+                            .setProductType(isSubscription ? ProductType.SUBS : ProductType.INAPP)
+                            .build()
+            );
+
+            QueryProductDetailsParams params = QueryProductDetailsParams.newBuilder()
+                    .setProductList(productList)
+                    .build();
+
+            billingClient.queryProductDetailsAsync(params, (billingResult, result) -> {
+                JSObject ret = new JSObject();
+                if (billingResult.getResponseCode() == BillingResponseCode.OK && result != null && !result.getProductDetailsList().isEmpty()) {
+                    ProductDetails pd = result.getProductDetailsList().get(0);
+                    ret.put("productId", pd.getProductId());
+                    ret.put("title", pd.getTitle());
+                    ret.put("description", pd.getDescription());
+
+                    if (isSubscription && pd.getSubscriptionOfferDetails() != null && !pd.getSubscriptionOfferDetails().isEmpty()) {
+                        ProductDetails.SubscriptionOfferDetails offer = pd.getSubscriptionOfferDetails().get(0);
+                        List<ProductDetails.PricingPhase> phases = offer.getPricingPhases().getPricingPhaseList();
+                        if (phases != null && !phases.isEmpty()) {
+                            ret.put("formattedPrice", phases.get(0).getFormattedPrice());
+                            ret.put("priceCurrencyCode", phases.get(0).getPriceCurrencyCode());
+                        }
+                    } else if (pd.getOneTimePurchaseOfferDetails() != null) {
+                        ret.put("formattedPrice", pd.getOneTimePurchaseOfferDetails().getFormattedPrice());
+                        ret.put("priceCurrencyCode", pd.getOneTimePurchaseOfferDetails().getPriceCurrencyCode());
+                    }
+                    ret.put("success", true);
+                } else {
+                    ret.put("success", false);
+                    ret.put("error", billingResult.getDebugMessage());
+                }
+                call.resolve(ret);
+            });
+        }, call);
+    }
+
+    /**
+     * Restore purchases (checks active subscriptions & in-app purchases from Google Play)
      */
     @PluginMethod
     public void restorePurchases(final PluginCall call) {
