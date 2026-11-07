@@ -10,13 +10,13 @@ on:
       track:
         description: 'Google Play Release Track'
         required: true
-        default: 'internal'
+        default: 'production'
         type: choice
         options:
-          - internal
-          - alpha
-          - beta
           - production
+          - beta
+          - alpha
+          - internal
       status:
         description: 'Release Status'
         required: true
@@ -42,7 +42,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-      PLAY_CONFIG: ${{ secrets.PLAY_CONFIG_JSON }}
+      PLAY_CONFIG: ${{ secrets.PLAY_STORE_JSON_KEY || secrets.PLAY_CONFIG_JSON }}
 
     steps:
       - name: Checkout Source Code
@@ -92,10 +92,8 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             TRACK="${{ github.event.inputs.track }}"
-          elif [ "${{ github.event_name }}" = "release" ]; then
-            TRACK="production"
           else
-            TRACK="internal"
+            TRACK="production"
           fi
           echo "Target Play Store Track: $TRACK"
           echo "PLAY_TRACK=$TRACK" >> $GITHUB_ENV
@@ -141,7 +139,7 @@ jobs:
         if: env.PLAY_CONFIG != ''
         uses: r0adkll/upload-google-play@v1
         with:
-          serviceAccountJsonPlainText: ${{ secrets.PLAY_CONFIG_JSON }}
+          serviceAccountJsonPlainText: ${{ env.PLAY_CONFIG }}
           packageName: com.royals.electolab
           releaseFiles: android/app/build/outputs/bundle/release/app-release.aab
           track: ${{ env.PLAY_TRACK }}
