@@ -43,13 +43,14 @@ export const BILLING_CONFIG = {
   MONTHLY_SUB_ID: 'electrolab_sub_monthly',
   LIFETIME_ID: 'electrolab_pro_lifetime',
   DEFAULT_SUB_PRICE: '₹49/month',
-  DEFAULT_LIFETIME_PRICE: '₹299',
+  DEFAULT_LIFETIME_PRICE: '₹599',
 };
 
 class BillingService {
   private isProCached: boolean = false;
   private isInitialized: boolean = false;
   private cachedPrice: string = BILLING_CONFIG.DEFAULT_SUB_PRICE;
+  private cachedLifetimePrice: string = BILLING_CONFIG.DEFAULT_LIFETIME_PRICE;
   private listeners: ((isPro: boolean) => void)[] = [];
   private tempProExpiry: number = 0;
   private tempProTimer: any = null;
@@ -90,6 +91,10 @@ class BillingService {
 
   public get priceDisplay(): string {
     return this.cachedPrice;
+  }
+
+  public get lifetimePriceDisplay(): string {
+    return this.cachedLifetimePrice;
   }
 
   /**
@@ -231,8 +236,17 @@ class BillingService {
         });
         if (details.success && details.formattedPrice) {
           this.cachedPrice = `${details.formattedPrice}/month`;
-          return this.cachedPrice;
         }
+
+        const lifetimeDetails = await NativeGoogleBilling.getProductDetails({
+          productId: BILLING_CONFIG.LIFETIME_ID,
+          productType: 'inapp',
+        });
+        if (lifetimeDetails.success && lifetimeDetails.formattedPrice) {
+          this.cachedLifetimePrice = lifetimeDetails.formattedPrice;
+        }
+
+        return this.cachedPrice;
       } catch (e) {
         console.warn('[BillingService] Could not fetch live price:', e);
       }

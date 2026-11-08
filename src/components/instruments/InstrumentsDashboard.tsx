@@ -12,19 +12,27 @@ import {
   Power,
   RotateCcw,
   Sparkles,
+  Crown,
+  Download,
+  Check,
 } from 'lucide-react';
 
 interface InstrumentsDashboardProps {
   simulation: SimulationResult;
   isSimulating: boolean;
   onToggleSimulate: () => void;
+  isPro?: boolean;
+  onOpenProModal?: () => void;
 }
 
 export const InstrumentsDashboard: React.FC<InstrumentsDashboardProps> = ({
   simulation,
   isSimulating,
   onToggleSimulate,
+  isPro = false,
+  onOpenProModal,
 }) => {
+  const [copiedCsv, setCopiedCsv] = useState(false);
   // Instrument Tabs
   const [activeTab, setActiveTab] = useState<'all' | 'oscilloscope' | 'multimeter' | 'function_gen' | 'power_supply'>('all');
 
@@ -234,6 +242,62 @@ export const InstrumentsDashboard: React.FC<InstrumentsDashboardProps> = ({
             </div>
 
             <div className="flex items-center gap-2">
+              <button
+                onClick={() => {
+                  if (!isPro) {
+                    soundFX.playClick();
+                    NativeBridge.haptic('warning');
+                    onOpenProModal?.();
+                    return;
+                  }
+                  soundFX.playVictory();
+                  // Export 100 sample points of simulated CH1 and CH2 waveform
+                  const points: string[] = ['Time (ms),CH1 (V),CH2 (V)'];
+                  const totalMs = 10;
+                  const dt = totalMs / 100;
+                  for (let i = 0; i <= 100; i++) {
+                    const t = i * dt;
+                    const v1 = (fgAmplitude * Math.sin(2 * Math.PI * (fgFrequency / 1000) * t)).toFixed(3);
+                    const v2 = (Math.sin(2 * Math.PI * (fgFrequency / 1000) * t) > 0 ? 3.3 : 0.0).toFixed(3);
+                    points.push(`${t.toFixed(3)},${v1},${v2}`);
+                  }
+                  const csvData = points.join('\n');
+                  const blob = new Blob([csvData], { type: 'text/csv' });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `waveform-data-${Date.now()}.csv`;
+                  a.click();
+                  URL.revokeObjectURL(url);
+                  setCopiedCsv(true);
+                  setTimeout(() => setCopiedCsv(false), 2000);
+                }}
+                className={`flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-bold transition shadow-sm ${
+                  isPro
+                    ? 'bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-cyan-500/30'
+                    : 'bg-amber-500/20 text-amber-300 border border-amber-500/40 hover:bg-amber-500/30'
+                }`}
+                title={isPro ? 'Export Waveform CSV' : 'Export Waveform CSV (PRO Feature)'}
+              >
+                {copiedCsv ? (
+                  <>
+                    <Check className="w-3 h-3 text-emerald-400" />
+                    <span>Exported</span>
+                  </>
+                ) : isPro ? (
+                  <>
+                    <Download className="w-3 h-3 text-cyan-400" />
+                    <span className="hidden sm:inline">CSV Export</span>
+                  </>
+                ) : (
+                  <>
+                    <Crown className="w-3 h-3 text-amber-400" />
+                    <span className="hidden sm:inline">CSV</span>
+                    <span className="text-[9px] font-mono px-1 rounded bg-amber-500/30 text-amber-200">PRO</span>
+                  </>
+                )}
+              </button>
+
               <button
                 onClick={() => {
                   soundFX.playClick();

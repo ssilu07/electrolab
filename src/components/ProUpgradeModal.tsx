@@ -15,7 +15,7 @@ import {
   Clock,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
-import { billingService } from '../services/billingService';
+import { billingService, BILLING_CONFIG } from '../services/billingService';
 import { adService } from '../services/adService';
 import { soundFX } from '../audio/SoundFX';
 import { NativeBridge } from '../utils/nativeBridge';
@@ -76,6 +76,32 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({
         setStatusMessage('Subscription canceled.');
       } else {
         setStatusMessage(result.message || 'Subscription could not be verified.');
+      }
+    } catch (e: any) {
+      setStatusMessage('Error: ' + (e?.message || 'Transaction failed'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLifetime = async () => {
+    soundFX.playClick();
+    NativeBridge.haptic('medium');
+    setLoading(true);
+    setStatusMessage('Connecting to Google Play (Lifetime License)...');
+
+    try {
+      const result = await billingService.purchaseLifetime();
+      if (result.success && result.isPro) {
+        soundFX.playVictory();
+        NativeBridge.haptic('success');
+        triggerCelebration();
+        setStatusMessage('Lifetime Pro Active! All ads removed & features unlocked permanently.');
+        if (onSuccess) onSuccess();
+      } else if (result.canceled) {
+        setStatusMessage('Purchase canceled.');
+      } else {
+        setStatusMessage(result.message || 'Purchase could not be verified.');
       }
     } catch (e: any) {
       setStatusMessage('Error: ' + (e?.message || 'Transaction failed'));
@@ -195,29 +221,29 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({
               desc: 'Completely removes banner and interstitial pop-up ads',
             },
             {
-              icon: Zap,
+              icon: Cpu,
               color: 'text-amber-400',
-              title: 'All Circuit Puzzles & Challenges',
-              desc: 'Instant access to all current and upcoming puzzle levels',
+              title: 'All Advanced ICs & Sensors',
+              desc: '555 Precision Timer, Logic Gates (AND, OR, NOT, XOR), Relays, Transistors, LDR',
             },
             {
-              icon: Cpu,
+              icon: Zap,
               color: 'text-cyan-400',
-              title: 'Pro Instruments & Oscilloscope',
-              desc: 'High-frequency signal generators, FFT spectrum & power stats',
+              title: 'All Circuit Puzzles & Challenges',
+              desc: 'Instant access to all current and upcoming puzzle levels with clues',
             },
             {
               icon: Layers,
               color: 'text-emerald-400',
-              title: 'Unlimited Custom Presets',
-              desc: 'Save and export unlimited complex circuit blueprints',
+              title: 'Pro Instruments & Lab Reports',
+              desc: 'Dual-Trace Scope CSV Data Export & Bill of Materials (BOM) Netlist Generator',
             },
           ].map((item, idx) => {
             const Icon = item.icon;
             return (
               <div
                 key={idx}
-                className="flex items-start gap-3 p-3 rounded-2xl bg-white/[0.03] border border-white/5 hover:border-cyan-500/20 transition"
+                className="flex items-start gap-3 p-2.5 rounded-2xl bg-white/[0.03] border border-white/5 hover:border-cyan-500/20 transition"
               >
                 <div className={`p-2 rounded-xl bg-white/5 shrink-0 ${item.color}`}>
                   <Icon className="w-4 h-4" />
@@ -275,35 +301,55 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({
               </div>
             )}
 
-            {/* Subscribe Monthly via Google Play */}
-            <button
-              onClick={handleSubscribe}
-              disabled={loading || adLoading}
-              className="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-cyan-500 via-sky-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-extrabold text-sm tracking-wide shadow-lg shadow-cyan-500/30 active:scale-98 transition flex items-center justify-center gap-2 disabled:opacity-50"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin text-slate-950" />
-                  <span>Connecting to Google Play...</span>
-                </>
-              ) : (
-                <>
-                  <Sparkles className="w-4 h-4 fill-slate-950" />
-                  <span>Subscribe to Pro &bull; {billingService.priceDisplay}</span>
-                </>
-              )}
-            </button>
+            {/* Google Play Purchase Options: Stacked Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              {/* Option 1: Monthly Subscription */}
+              <button
+                onClick={handleSubscribe}
+                disabled={loading || adLoading}
+                className="p-3 rounded-2xl bg-gradient-to-br from-cyan-500/20 via-sky-600/20 to-blue-700/20 border border-cyan-500/40 hover:border-cyan-400 text-left transition active:scale-98 flex flex-col justify-between gap-2 shadow-lg disabled:opacity-50 group"
+              >
+                <div className="flex items-center justify-between w-full">
+                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-cyan-500/30 text-cyan-300">
+                    MONTHLY
+                  </span>
+                  <Sparkles className="w-3.5 h-3.5 text-cyan-400 group-hover:rotate-12 transition-transform" />
+                </div>
+                <div>
+                  <div className="text-sm font-black text-white">{billingService.priceDisplay}</div>
+                  <div className="text-[10px] text-slate-400 mt-0.5">Flexible monthly student pass</div>
+                </div>
+              </button>
+
+              {/* Option 2: Lifetime License */}
+              <button
+                onClick={handleLifetime}
+                disabled={loading || adLoading}
+                className="p-3 rounded-2xl bg-gradient-to-br from-amber-500/20 via-yellow-600/20 to-amber-700/20 border border-amber-500/40 hover:border-amber-400 text-left transition active:scale-98 flex flex-col justify-between gap-2 shadow-lg disabled:opacity-50 group"
+              >
+                <div className="flex items-center justify-between w-full">
+                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-amber-500/30 text-amber-300">
+                    LIFETIME • BEST VALUE
+                  </span>
+                  <Crown className="w-3.5 h-3.5 text-amber-400 group-hover:rotate-12 transition-transform" />
+                </div>
+                <div>
+                  <div className="text-sm font-black text-white">{billingService.lifetimePriceDisplay} Once</div>
+                  <div className="text-[10px] text-slate-400 mt-0.5">Pay once, keep forever</div>
+                </div>
+              </button>
+            </div>
 
             {/* Rewarded Video Ad Option: Free 30-min Pro Pass */}
             {!isTempPro && (
-              <div className="p-3 rounded-2xl bg-white/[0.03] border border-amber-500/30 flex items-center justify-between gap-3">
+              <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/10 hover:border-amber-500/30 flex items-center justify-between gap-3 transition">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5 text-xs font-bold text-amber-300">
                     <Film className="w-3.5 h-3.5 text-amber-400" />
                     <span>Free 30-Min Pro Pass</span>
                   </div>
                   <p className="text-[10px] text-slate-400 mt-0.5">
-                    Watch 1 sponsor video to unlock all features
+                    Watch 1 sponsor video to unlock everything free
                   </p>
                 </div>
                 <button

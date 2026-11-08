@@ -5,6 +5,7 @@ export interface ComponentMeta {
   name: string;
   category: ComponentCategory;
   description: string;
+  isPro?: boolean;
   defaultProps: {
     resistance?: number;
     capacitance?: number;
@@ -178,6 +179,7 @@ export const COMPONENT_REGISTRY: Record<ComponentType, ComponentMeta> = {
     name: 'SPDT Relay (5V Coil)',
     category: 'switches',
     description: 'Electro-mechanical relay switch. Energizing coil snaps Common contact from NC to NO.',
+    isPro: true,
     defaultProps: {
       voltage: 5.0,
       relayEnergized: false,
@@ -195,6 +197,7 @@ export const COMPONENT_REGISTRY: Record<ComponentType, ComponentMeta> = {
     name: 'Photoresistor (LDR)',
     category: 'sensors',
     description: 'Light Dependent Resistor. Resistance drops with ambient light.',
+    isPro: true,
     defaultProps: {
       sliderValue: 0.5, // 50% ambient light
       resistance: 10000,
@@ -209,6 +212,7 @@ export const COMPONENT_REGISTRY: Record<ComponentType, ComponentMeta> = {
     name: 'NPN Transistor (2N2222)',
     category: 'semiconductors',
     description: 'Bipolar junction transistor. Base current controls Collector-Emitter current.',
+    isPro: true,
     defaultProps: {},
     pins: [
       { id: 'b', label: 'B', xOffset: -1, yOffset: 0 },
@@ -234,6 +238,7 @@ export const COMPONENT_REGISTRY: Record<ComponentType, ComponentMeta> = {
     name: 'AND Gate (74HC08)',
     category: 'logic',
     description: 'Logic gate: Output = HIGH (5V) only if both Input A and Input B are HIGH.',
+    isPro: true,
     defaultProps: {},
     pins: [
       { id: 'in1', label: 'A', xOffset: -2, yOffset: -1 },
@@ -246,6 +251,7 @@ export const COMPONENT_REGISTRY: Record<ComponentType, ComponentMeta> = {
     name: 'OR Gate (74HC32)',
     category: 'logic',
     description: 'Logic gate: Output = HIGH (5V) if either Input A or Input B is HIGH.',
+    isPro: true,
     defaultProps: {},
     pins: [
       { id: 'in1', label: 'A', xOffset: -2, yOffset: -1 },
@@ -258,6 +264,7 @@ export const COMPONENT_REGISTRY: Record<ComponentType, ComponentMeta> = {
     name: 'NOT Inverter (74HC04)',
     category: 'logic',
     description: 'Logic inverter: Output = HIGH when Input is LOW, and vice versa.',
+    isPro: true,
     defaultProps: {},
     pins: [
       { id: 'in', label: 'A', xOffset: -2, yOffset: 0 },
@@ -269,6 +276,7 @@ export const COMPONENT_REGISTRY: Record<ComponentType, ComponentMeta> = {
     name: 'XOR Gate (74HC86)',
     category: 'logic',
     description: 'Exclusive-OR gate: Output = HIGH when exactly one input is HIGH.',
+    isPro: true,
     defaultProps: {},
     pins: [
       { id: 'in1', label: 'A', xOffset: -2, yOffset: -1 },
@@ -281,6 +289,7 @@ export const COMPONENT_REGISTRY: Record<ComponentType, ComponentMeta> = {
     name: 'NE555 Precision Timer',
     category: 'semiconductors',
     description: 'Classic 8-pin timer IC for pulse generation, oscillators, and clocks.',
+    isPro: true,
     defaultProps: {
       charge: 0,
     },

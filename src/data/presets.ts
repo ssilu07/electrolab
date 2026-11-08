@@ -9,6 +9,7 @@ export interface CircuitPreset {
   name: string;
   description: string;
   category: string;
+  isPro?: boolean;
   components: CircuitComponent[];
   wires: CircuitWire[];
 }
@@ -39,6 +40,7 @@ export const PRESET_CIRCUITS: CircuitPreset[] = [
     id: 'timer-555-oscillator',
     name: '555 Astable Square Wave Generator',
     category: 'Oscillators',
+    isPro: true,
     description: 'Classic NE555 timer generating continuous periodic pulses to drive an LED and piezo buzzer.',
     components: [
       { id: 'bat1', type: 'battery', x: -10, y: 0, rotation: 90, properties: { voltage: 9.0 } },
@@ -120,6 +122,7 @@ export const PRESET_CIRCUITS: CircuitPreset[] = [
     id: 'logic-exclusive-or',
     name: 'Digital Logic XOR Gate Circuit',
     category: 'Digital',
+    isPro: true,
     description: 'Interactive digital logic circuit demonstrating XOR behavior using two toggle input switches.',
     components: [
       { id: 'bat1', type: 'battery', x: -10, y: 0, rotation: 90, properties: { voltage: 5.0 } },
@@ -145,6 +148,7 @@ export const PRESET_CIRCUITS: CircuitPreset[] = [
     id: 'transistor-dark-detector',
     name: 'Transistor Nightlight Detector',
     category: 'Sensors',
+    isPro: true,
     description: 'Automatic nightlight utilizing an LDR light sensor and an NPN BJT switch.',
     components: [
       { id: 'bat1', type: 'battery', x: -8, y: 0, rotation: 90, properties: { voltage: 9.0 } },

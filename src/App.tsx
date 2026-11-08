@@ -457,7 +457,17 @@ export function App() {
             if (comp) {
               particleSystemRef.current.triggerExplosion(comp.x * gridSize, comp.y * gridSize);
               const reason = solverRef.current.getBlownReason(blownId) || 'Overcurrent explosion';
-              addToast('danger', '💥 Catastrophic Explosion!', `${comp.type.toUpperCase()}: ${reason}`);
+              addToast(
+                'danger',
+                '💥 Component Exploded!',
+                `${comp.type.toUpperCase()}: ${reason}`,
+                !isPro
+                  ? {
+                      label: 'Overload Shield (PRO)',
+                      onClick: () => setShowProModal(true),
+                    }
+                  : undefined
+              );
             }
           }
         }
@@ -894,6 +904,18 @@ export function App() {
     const type = e.dataTransfer.getData('application/electrolab-component') as ComponentType;
     if (!type || !COMPONENT_REGISTRY[type]) return;
 
+    const meta = COMPONENT_REGISTRY[type];
+    if (meta.isPro && !isPro) {
+      soundFX.playClick();
+      NativeBridge.haptic('warning');
+      setShowProModal(true);
+      addToast('info', `${meta.name} (PRO)`, 'Unlock all advanced ICs & sensors or get a 30-min Free Pass via sponsor video.', {
+        label: 'Unlock',
+        onClick: () => setShowProModal(true),
+      });
+      return;
+    }
+
     const rect = e.currentTarget.getBoundingClientRect();
     const clientX = e.clientX - rect.left;
     const clientY = e.clientY - rect.top;
@@ -901,7 +923,6 @@ export function App() {
     const gx = Math.round(world.x / gridSize);
     const gy = Math.round(world.y / gridSize);
 
-    const meta = COMPONENT_REGISTRY[type];
     const newComp: CircuitComponent = {
       id: `${type}_${Date.now()}`,
       type,
@@ -925,6 +946,17 @@ export function App() {
   const handleSpawnComponent = (type: ComponentType, atPos?: { x: number; y: number }) => {
     const meta = COMPONENT_REGISTRY[type];
     if (!meta) return;
+
+    if (meta.isPro && !isPro) {
+      soundFX.playClick();
+      NativeBridge.haptic('warning');
+      setShowProModal(true);
+      addToast('info', `${meta.name} (PRO)`, 'Unlock all advanced ICs & sensors or get a 30-min Free Pass via sponsor video.', {
+        label: 'Unlock',
+        onClick: () => setShowProModal(true),
+      });
+      return;
+    }
 
     let gx = atPos ? atPos.x : 0;
     let gy = atPos ? atPos.y : 0;
@@ -1222,6 +1254,8 @@ export function App() {
             simulation={simResult}
             isSimulating={isSimulating}
             onToggleSimulate={() => setIsSimulating((prev) => !prev)}
+            isPro={isPro}
+            onOpenProModal={() => setShowProModal(true)}
           />
         </div>
       ) : activeScreen === '3d' || (activeScreen === 'circuit' && viewMode === '3d') ? (
@@ -1526,7 +1560,11 @@ export function App() {
 
       {/* Interactive Bottom Component Drawer (Screenshot 1 & 2) */}
       {(activeScreen === 'circuit' || (activeScreen === '3d' && gameMode === 'sandbox')) && (
-        <ComponentDrawer onSpawnComponent={handleSpawnComponent} />
+        <ComponentDrawer
+          onSpawnComponent={handleSpawnComponent}
+          isPro={isPro}
+          onOpenProModal={() => setShowProModal(true)}
+        />
       )}
 
       {/* Real-time Component Property Inspector */}
@@ -1607,6 +1645,8 @@ export function App() {
             addToast('success', 'Preset Loaded', `Loaded circuit with ${comps.length} components.`);
           }}
           onClose={() => setShowPresetsModal(false)}
+          isPro={isPro}
+          onOpenProModal={() => setShowProModal(true)}
         />
       )}
 
@@ -1625,6 +1665,8 @@ export function App() {
             addToast('success', 'Circuit Imported', 'Loaded custom circuit.');
           }}
           onClose={() => setShowShareModal(false)}
+          isPro={isPro}
+          onOpenProModal={() => setShowProModal(true)}
         />
       )}
 
