@@ -1127,7 +1127,7 @@ export function App() {
 
       expCtx.fillStyle = '#ffffff';
       expCtx.font = 'bold 12px "JetBrains Mono", monospace';
-      expCtx.fillText('ELECTROCRAFT v1.0 — CIRCUIT BLUEPRINT', 20, exportCanvas.height - 15);
+      expCtx.fillText('ELECTROLAB v1.0 — CIRCUIT BLUEPRINT', 20, exportCanvas.height - 15);
 
       expCtx.fillStyle = '#38bdf8';
       expCtx.font = '10px "JetBrains Mono", monospace';
@@ -1141,11 +1141,22 @@ export function App() {
       const url = exportCanvas.toDataURL('image/png');
       const a = document.createElement('a');
       a.href = url;
-      a.download = `electrocraft-blueprint-${Date.now()}.png`;
+      a.download = `electrolab-blueprint-${Date.now()}.png`;
       a.click();
       soundFX.playVictory();
       addToast('success', 'Blueprint Exported', 'PNG card downloaded to your device.');
+      // Safe natural break interstitial ad trigger
+      adService.triggerNaturalBreakInterstitial('export_blueprint').catch(() => {});
     } catch {}
+  };
+
+  // Safe simulation toggle with natural break ad trigger
+  const handleToggleSimulate = () => {
+    setIsSimulating((prev) => {
+      const next = !prev;
+      adService.triggerNaturalBreakInterstitial('toggle_simulation').catch(() => {});
+      return next;
+    });
   };
 
   // Keyboard Shortcuts
@@ -1202,7 +1213,9 @@ export function App() {
         glassTheme={glassTheme}
         onSelectGlassTheme={setGlassTheme}
         isSimulating={isSimulating}
-        onToggleSimulate={() => setIsSimulating((prev) => !prev)}
+        onToggleSimulate={handleToggleSimulate}
+        oscilloscopeOpen={oscilloscope.enabled}
+        onToggleOscilloscope={() => setOscilloscope((prev) => ({ ...prev, enabled: !prev.enabled }))}
         gameMode={gameMode}
         onSetGameMode={setGameMode}
         currentLevelIndex={currentLevelIndex}
@@ -1655,6 +1668,8 @@ export function App() {
         <ShareModal
           components={components}
           wires={wires}
+          simulation={simResult}
+          oscilloscopeVoltage={simResult.oscilloscopeVoltage}
           onLoadCircuit={(comps, wrs) => {
             setComponents(comps);
             setWires(wrs);
@@ -1667,6 +1682,8 @@ export function App() {
           onClose={() => setShowShareModal(false)}
           isPro={isPro}
           onOpenProModal={() => setShowProModal(true)}
+          onExportBlueprintImage={handleExportImage}
+          canvasElement={canvasRef.current}
         />
       )}
 

@@ -36,7 +36,7 @@ class AdService {
   private isPreparingRewarded = false;
   private userEarnedReward = false;
   private lastInterstitialTime = 0;
-  private readonly INTERSTITIAL_COOLDOWN_MS = 60 * 1000; // 60s minimum interval
+  private readonly INTERSTITIAL_COOLDOWN_MS = 75 * 1000; // 75s minimum interval to prevent user annoyance and comply with Google Play Better Ads Policy
 
   public get bannerAdId(): string {
     return ADMOB_CONFIG.IS_TEST_MODE ? ADMOB_CONFIG.TEST_ADS.BANNER : ADMOB_CONFIG.REAL_ADS.BANNER;
@@ -315,6 +315,16 @@ class AdService {
       this.isInterstitialPrepared = false;
       return false;
     }
+  }
+
+  /**
+   * Safe Interstitial Trigger for natural break points (Run/Stop simulation, Save/Export, Preset load).
+   * Automatically respects cooldown, never shows while drawing/wiring, and bypasses Pro users.
+   */
+  public async triggerNaturalBreakInterstitial(reason = 'general'): Promise<boolean> {
+    if (billingService.isPro) return false;
+    console.log(`[AdService] Evaluating interstitial for natural transition break: ${reason}`);
+    return this.showInterstitial(false);
   }
 
   /**

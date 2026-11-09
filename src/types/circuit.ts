@@ -185,4 +185,6 @@ export interface Particle {
   pathWireId?: string;
   pathT?: number; // 0..1 along wire
   speed?: number;
+  prevX?: number;
+  prevY?: number;
 }

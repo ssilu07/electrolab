@@ -316,8 +316,17 @@ export class ParticleSystem {
         const midY = (p1y + p2y) / 2 + Math.min(32, dist * 0.16);
 
         const omt = 1 - t;
-        p.x = omt * omt * p1x + 2 * omt * t * midX + t * t * p2x;
-        p.y = omt * omt * p1y + 2 * omt * t * midY + t * t * p2y;
+        const newX = omt * omt * p1x + 2 * omt * t * midX + t * t * p2x;
+        const newY = omt * omt * p1y + 2 * omt * t * midY + t * t * p2y;
+        if (p.x !== 0 || p.y !== 0) {
+          p.prevX = p.x;
+          p.prevY = p.y;
+        } else {
+          p.prevX = newX;
+          p.prevY = newY;
+        }
+        p.x = newX;
+        p.y = newY;
       } else {
         p.life -= dt / p.maxLife;
         if (p.life <= 0) {
@@ -412,18 +421,31 @@ export class ParticleSystem {
       ctx.globalAlpha = Math.max(0, Math.min(1, p.alpha));
       const s = Math.max(0.1, p.size);
 
+      // Kinetic Motion Comet Trail (High-Vis Energy Flow "Juice")
+      if (p.prevX !== undefined && p.prevY !== undefined && (p.x !== p.prevX || p.y !== p.prevY)) {
+        ctx.beginPath();
+        ctx.moveTo(p.prevX, p.prevY);
+        ctx.lineTo(p.x, p.y);
+        ctx.strokeStyle = p.color;
+        ctx.lineWidth = s * 1.5;
+        ctx.lineCap = 'round';
+        ctx.shadowColor = p.color;
+        ctx.shadowBlur = 8;
+        ctx.stroke();
+      }
+
       // Layer 1: Vibrant outer neon glow halo
       ctx.fillStyle = p.color;
       ctx.shadowColor = p.color;
-      ctx.shadowBlur = 10;
+      ctx.shadowBlur = 12;
       ctx.beginPath();
-      ctx.arc(p.x, p.y, s * 1.5, 0, Math.PI * 2);
+      ctx.arc(p.x, p.y, s * 1.6, 0, Math.PI * 2);
       ctx.fill();
 
       // Layer 2: Ultra-bright white-hot core
       ctx.fillStyle = '#ffffff';
       ctx.beginPath();
-      ctx.arc(p.x, p.y, s * 0.55, 0, Math.PI * 2);
+      ctx.arc(p.x, p.y, s * 0.6, 0, Math.PI * 2);
       ctx.fill();
 
       ctx.restore();

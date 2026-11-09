@@ -2,6 +2,7 @@ import React from 'react';
 import { PRESET_CIRCUITS, CircuitPreset } from '../data/presets';
 import { CircuitComponent, CircuitWire } from '../types/circuit';
 import { soundFX } from '../audio/SoundFX';
+import { adService } from '../services/adService';
 import { X, BookOpen, ArrowRight, Sparkles, Crown } from 'lucide-react';
 
 interface PresetsModalProps {
@@ -25,6 +26,8 @@ export const PresetsModal: React.FC<PresetsModalProps> = ({
     }
     soundFX.playConnect();
     onSelectPreset(preset.components, preset.wires);
+    // Safe natural break interstitial ad trigger
+    adService.triggerNaturalBreakInterstitial('load_preset').catch(() => {});
     onClose();
   };
 

@@ -52,6 +52,10 @@ export interface TopBarProps {
   onExportImage: () => void;
   onClearBoard: () => void;
   onOpenPrivacy?: () => void;
+  oscilloscopeOpen?: boolean;
+  onToggleOscilloscope?: () => void;
+  multimeterOpen?: boolean;
+  onToggleMultimeter?: () => void;
   isPro?: boolean;
   onOpenProModal?: () => void;
   onRateApp?: () => void;
@@ -74,6 +78,10 @@ export const TopBar: React.FC<TopBarProps> = ({
   onExportImage,
   onClearBoard,
   onOpenPrivacy,
+  oscilloscopeOpen = false,
+  onToggleOscilloscope,
+  multimeterOpen: _multimeterOpen = false,
+  onToggleMultimeter: _onToggleMultimeter,
   isPro = false,
   onOpenProModal,
   onRateApp,
@@ -204,6 +212,26 @@ export const TopBar: React.FC<TopBarProps> = ({
           >
             <FolderOpen className="w-4 h-4 text-cyan-400" />
           </button>
+
+          {/* Real-time Oscilloscope (DSO) Quick Toggle (Screenshot 2 / Visual Juice) */}
+          {onToggleOscilloscope && activeScreen === 'circuit' && (
+            <button
+              onClick={() => {
+                soundFX.playClick();
+                NativeBridge.haptic('light');
+                onToggleOscilloscope();
+              }}
+              className={`px-2 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1 shadow-sm ${
+                oscilloscopeOpen
+                  ? 'bg-amber-500/25 text-amber-300 border border-amber-400/70 shadow-amber-500/20'
+                  : 'glass-button text-slate-300 hover:text-white'
+              }`}
+              title="Toggle Live Oscilloscope (Key: O)"
+            >
+              <Activity className={`w-3.5 h-3.5 ${oscilloscopeOpen ? 'text-amber-400 animate-pulse' : 'text-slate-400'}`} />
+              <span className="hidden sm:inline text-[11px] font-mono">DSO</span>
+            </button>
+          )}
 
           {/* Quick Share / Export */}
           <button
