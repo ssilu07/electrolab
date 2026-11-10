@@ -1,7 +1,7 @@
 {
   "name": "electrolab",
   "private": true,
-  "version": "1.0.6",
+  "version": "1.0.7",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -21,6 +21,7 @@
     "@capacitor/cli": "^8.5.3",
     "@capacitor/core": "^8.5.3",
     "@capacitor/haptics": "^8.0.2",
+    "@capacitor/local-notifications": "^8.3.1",
     "@capacitor/status-bar": "^8.0.4",
     "@types/three": "^0.186.0",
     "canvas-confetti": "^1.9.4",

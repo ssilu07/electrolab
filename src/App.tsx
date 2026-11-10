@@ -33,6 +33,7 @@ import { ProUpgradeModal } from './components/ProUpgradeModal';
 import { billingService } from './services/billingService';
 import { adService } from './services/adService';
 import { playStoreService } from './services/playStoreService';
+import { notificationService } from './services/notificationService';
 import { ToastContainer } from './components/Toast';
 import { NativeBridge } from './utils/nativeBridge';
 import {
@@ -292,6 +293,68 @@ export function App() {
 
     return () => {
       unsubDownload();
+    };
+  }, [addToast]);
+
+  // 1c. Daily Reminders & Local Notifications (Automatic 7:30 PM retention scheduler)
+  useEffect(() => {
+    notificationService.init();
+
+    const unsubAction = notificationService.onAction((payload) => {
+      try {
+        NativeBridge.haptic('medium');
+        soundFX.playClick();
+
+        if (payload.target === 'challenge') {
+          setGameMode('challenge');
+          if (typeof payload.level === 'number' && payload.level >= 0 && payload.level < CHALLENGE_LEVELS.length) {
+            setCurrentLevelIndex(payload.level);
+          }
+          setActiveScreen('circuit');
+          setViewMode('workbench');
+          addToast('info', 'Daily Challenge Activated! ⚡', 'Build and test your circuit now.');
+        } else if (payload.target === 'preset') {
+          if (payload.presetId) {
+            const found = PRESET_CIRCUITS.find((p) => p.id === payload.presetId);
+            if (found) {
+              setComponents(found.components);
+              setWires(found.wires);
+              setActiveScreen('circuit');
+              setViewMode('workbench');
+              addToast('success', `Loaded: ${found.name}`, 'Preset circuit loaded from reminder.');
+            } else {
+              setShowPresetsModal(true);
+            }
+          } else {
+            setShowPresetsModal(true);
+          }
+        } else if (payload.target === 'instruments') {
+          setActiveScreen('instruments');
+          if (payload.tool === 'scope') {
+            setOscilloscope((prev) => ({ ...prev, enabled: true }));
+            addToast('info', 'Oscilloscope Ready', 'Dual-channel signal inspection active.');
+          } else if (payload.tool === 'multimeter') {
+            setMultimeter((prev) => ({ ...prev, enabled: true }));
+            addToast('info', 'Multimeter Ready', 'Probes ready for voltage & current measurement.');
+          }
+        } else if (payload.target === 'view_mode') {
+          if (payload.mode === '3d') {
+            setViewMode('3d');
+            addToast('info', '3D Workbench Inspection', 'Interactive 3D view active.');
+          }
+        } else if (payload.action === 'stress_test') {
+          setWillItBlow(true);
+          setActiveScreen('circuit');
+          setViewMode('workbench');
+          addToast('warning', '💥 Lab Stress Test Mode', 'Will-It-Blow active. Test components up to breakdown limit!');
+        }
+      } catch (err) {
+        console.error('[Notification Action Handler Error]', err);
+      }
+    });
+
+    return () => {
+      unsubAction();
     };
   }, [addToast]);
 

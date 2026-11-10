@@ -4,6 +4,7 @@ import { GLASS_THEMES } from '../theme/glassTheme';
 import { soundFX } from '../audio/SoundFX';
 import { NativeBridge } from '../utils/nativeBridge';
 import { billingService } from '../services/billingService';
+import { notificationService } from '../services/notificationService';
 import {
   Play,
   Pause,
@@ -26,6 +27,8 @@ import {
   Crown,
   Star,
   Download,
+  Bell,
+  BellRing,
 } from 'lucide-react';
 
 export type MainNavScreen = 'circuit' | 'instruments' | '3d' | 'challenges' | 'presets';
@@ -88,6 +91,22 @@ export const TopBar: React.FC<TopBarProps> = ({
   onCheckUpdates,
 }) => {
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(() => notificationService.isEnabled());
+  const [testNotifSending, setTestNotifSending] = useState(false);
+
+  const handleToggleNotifications = async () => {
+    const next = !notificationsEnabled;
+    setNotificationsEnabled(next);
+    NativeBridge.haptic('light');
+    await notificationService.setEnabled(next);
+  };
+
+  const handleTestNotification = async () => {
+    setTestNotifSending(true);
+    NativeBridge.haptic('medium');
+    await notificationService.triggerTestNotification();
+    setTimeout(() => setTestNotifSending(false), 3000);
+  };
 
   const handleSimToggle = () => {
     soundFX.playClick();
@@ -374,6 +393,36 @@ export const TopBar: React.FC<TopBarProps> = ({
               >
                 <div className={`w-4 h-4 rounded-full bg-white transition-transform ${!isMuted ? 'translate-x-5' : 'translate-x-0'}`} />
               </button>
+            </div>
+
+            {/* Daily Smart Reminders (7:30 PM local device time) */}
+            <div className="p-2.5 rounded-2xl bg-slate-900/60 border border-white/5 space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Bell className={`w-4 h-4 ${notificationsEnabled ? 'text-cyan-400' : 'text-slate-500'}`} />
+                  <div>
+                    <span className="text-xs font-bold text-white block">Daily Lab Reminders & Tips</span>
+                    <span className="text-[10px] text-slate-400">1 smart challenge daily at 7:30 PM</span>
+                  </div>
+                </div>
+                <button
+                  onClick={handleToggleNotifications}
+                  className={`w-10 h-5 rounded-full p-0.5 transition ${notificationsEnabled ? 'bg-cyan-500' : 'bg-slate-700'}`}
+                  title="Toggle Daily Reminders"
+                >
+                  <div className={`w-4 h-4 rounded-full bg-white transition-transform ${notificationsEnabled ? 'translate-x-5' : 'translate-x-0'}`} />
+                </button>
+              </div>
+              {notificationsEnabled && (
+                <button
+                  onClick={handleTestNotification}
+                  disabled={testNotifSending}
+                  className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-xl text-[11px] font-semibold text-cyan-300 hover:text-white bg-cyan-950/40 border border-cyan-500/20 transition active:scale-95 disabled:opacity-50"
+                >
+                  <BellRing className="w-3 h-3 text-cyan-400" />
+                  <span>{testNotifSending ? 'Test Scheduled (in 4s)...' : 'Test Notification (Send Now)'}</span>
+                </button>
+              )}
             </div>
 
             {/* Color Theme Selector */}
