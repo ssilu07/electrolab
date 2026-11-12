@@ -119,13 +119,13 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({
     try {
       const earned = await adService.showRewardVideo();
       if (earned) {
-        billingService.grantTemporaryPro(30);
+        billingService.grantTemporaryPro(10);
         soundFX.playVictory();
         NativeBridge.haptic('success');
         triggerCelebration();
         setIsTempPro(true);
-        setTempMinutes(30);
-        setStatusMessage('🎉 30-Minute Pro Pass Active! Zero ads & all features unlocked.');
+        setTempMinutes(10);
+        setStatusMessage('🎉 10-Minute Pro Pass Active! Zero ads & all features unlocked.');
         if (onSuccess) onSuccess();
       } else {
         setStatusMessage('Video was closed before completion. Watch fully to earn pass.');
@@ -288,7 +288,7 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({
                   <span>Temporary Pro Pass Active (~{tempMinutes}m left)</span>
                 </div>
                 <p className="text-[10px] text-slate-400 mt-0.5">
-                  Full access unlocked. Upgrade permanently below or add +30 mins.
+                  Full access unlocked. Upgrade permanently below or add +10 mins.
                 </p>
                 <button
                   onClick={handleWatchRewardedAd}
@@ -296,7 +296,7 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({
                   className="mt-2 px-3 py-1 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 text-[11px] font-bold transition flex items-center justify-center gap-1 mx-auto"
                 >
                   <Film className="w-3 h-3 text-amber-400" />
-                  <span>+30 Mins (Watch Video)</span>
+                  <span>+10 Mins (Watch Video)</span>
                 </button>
               </div>
             )}
@@ -340,13 +340,13 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({
               </button>
             </div>
 
-            {/* Rewarded Video Ad Option: Free 30-min Pro Pass */}
+            {/* Rewarded Video Ad Option: Free 10-min Pro Pass */}
             {!isTempPro && (
               <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/10 hover:border-amber-500/30 flex items-center justify-between gap-3 transition">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5 text-xs font-bold text-amber-300">
                     <Film className="w-3.5 h-3.5 text-amber-400" />
-                    <span>Free 30-Min Pro Pass</span>
+                    <span>Free 10-Min Pro Pass</span>
                   </div>
                   <p className="text-[10px] text-slate-400 mt-0.5">
                     Watch 1 sponsor video to unlock everything free

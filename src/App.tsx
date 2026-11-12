@@ -972,7 +972,7 @@ export function App() {
       soundFX.playClick();
       NativeBridge.haptic('warning');
       setShowProModal(true);
-      addToast('info', `${meta.name} (PRO)`, 'Unlock all advanced ICs & sensors or get a 30-min Free Pass via sponsor video.', {
+      addToast('info', `${meta.name} (PRO)`, 'Unlock all advanced ICs & sensors or get a 10-min Free Pass via sponsor video.', {
         label: 'Unlock',
         onClick: () => setShowProModal(true),
       });
@@ -1014,7 +1014,7 @@ export function App() {
       soundFX.playClick();
       NativeBridge.haptic('warning');
       setShowProModal(true);
-      addToast('info', `${meta.name} (PRO)`, 'Unlock all advanced ICs & sensors or get a 30-min Free Pass via sponsor video.', {
+      addToast('info', `${meta.name} (PRO)`, 'Unlock all advanced ICs & sensors or get a 10-min Free Pass via sponsor video.', {
         label: 'Unlock',
         onClick: () => setShowProModal(true),
       });

@@ -143,7 +143,7 @@ class BillingService {
   /**
    * Grant temporary Pro pass (earned via Rewarded Video Ad)
    */
-  public grantTemporaryPro(durationMinutes: number = 30): void {
+  public grantTemporaryPro(durationMinutes: number = 10): void {
     const expiry = Date.now() + durationMinutes * 60 * 1000;
     this.tempProExpiry = expiry;
     try {

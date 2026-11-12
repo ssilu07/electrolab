@@ -143,7 +143,7 @@ export const ComponentDrawer: React.FC<ComponentDrawerProps> = ({
                 } ${isExpanded ? 'w-full aspect-square' : 'w-20 h-24'}`}
                 title={
                   isLocked
-                    ? `${comp.name} — ElectroLab PRO Component (Tap to Unlock or earn Free 30m Pass)`
+                    ? `${comp.name} — ElectroLab PRO Component (Tap to Unlock or earn Free 10m Pass)`
                     : `${comp.name} — Tap to Add or Drag onto Board`
                 }
               >
