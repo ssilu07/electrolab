@@ -36,7 +36,8 @@ class AdService {
   private isPreparingRewarded = false;
   private userEarnedReward = false;
   private lastInterstitialTime = 0;
-  private readonly INTERSTITIAL_COOLDOWN_MS = 75 * 1000; // 75s minimum interval to prevent user annoyance and comply with Google Play Better Ads Policy
+  private preloadTimer: any = null;
+  private readonly INTERSTITIAL_COOLDOWN_MS = 45 * 1000; // 45s optimal interval for mobile utility/simulation sessions
 
   public get bannerAdId(): string {
     return ADMOB_CONFIG.IS_TEST_MODE ? ADMOB_CONFIG.TEST_ADS.BANNER : ADMOB_CONFIG.REAL_ADS.BANNER;
@@ -56,6 +57,14 @@ class AdService {
 
   public get isInterstitialReady(): boolean {
     return this.isInterstitialPrepared;
+  }
+
+  /**
+   * Check whether an interstitial ad is eligible to be shown right now
+   */
+  public canShowInterstitial(): boolean {
+    if (billingService.isPro) return false;
+    return Date.now() - this.lastInterstitialTime >= this.INTERSTITIAL_COOLDOWN_MS;
   }
 
   /**
@@ -159,8 +168,12 @@ class AdService {
       this.isInitialized = true;
       console.log('[AdService] AdMob initialized successfully.');
 
-      // Preload one interstitial cleanly in background
-      this.prepareInterstitial().catch(() => {});
+      // Preload one initial interstitial cleanly after 3s delay (non-blocking for startup)
+      setTimeout(() => {
+        if (!billingService.isPro) {
+          this.prepareInterstitial().catch(() => {});
+        }
+      }, 3000);
     } catch (error) {
       console.error('[AdService] Error during AdMob initialization:', error);
     }
@@ -305,10 +318,14 @@ class AdService {
       await AdMob.showInterstitial();
       this.lastInterstitialTime = now;
       this.isInterstitialPrepared = false;
-      // Preload next interstitial cleanly
-      setTimeout(() => {
-        this.prepareInterstitial().catch(() => {});
-      }, 1000);
+      // High Show-Rate Strategy: Delay preloading next interstitial until cooldown is nearly elapsed (40s).
+      // This prevents thousands of unused matched ad requests when users exit after 1 impression.
+      if (this.preloadTimer) clearTimeout(this.preloadTimer);
+      this.preloadTimer = setTimeout(() => {
+        if (!billingService.isPro) {
+          this.prepareInterstitial().catch(() => {});
+        }
+      }, Math.max(5000, this.INTERSTITIAL_COOLDOWN_MS - 5000));
       return true;
     } catch (err) {
       console.warn('[AdService] Failed to show interstitial:', err);
@@ -331,6 +348,7 @@ class AdService {
    * Preload a Rewarded Video Ad on demand (Guarded against duplicate requests)
    */
   public async prepareRewarded(): Promise<boolean> {
+    if (billingService.isPro) return false;
     if (!Capacitor.isNativePlatform()) return true;
     if (this.isRewardedPrepared) return true;
     if (this.isPreparingRewarded) return false;

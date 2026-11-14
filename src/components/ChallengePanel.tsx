@@ -3,6 +3,7 @@ import { ChallengeLevel, CircuitComponent, CircuitWire, SimulationResult } from 
 import { soundFX } from '../audio/SoundFX';
 import { NativeBridge } from '../utils/nativeBridge';
 import { adService } from '../services/adService';
+import { ratingService } from '../services/ratingService';
 import confetti from 'canvas-confetti';
 import {
   Trophy,
@@ -17,6 +18,7 @@ import {
   Crown,
   Film,
   Loader2,
+  Lock,
 } from 'lucide-react';
 
 interface ChallengePanelProps {
@@ -30,6 +32,7 @@ interface ChallengePanelProps {
   isPro?: boolean;
   onOpenProModal?: () => void;
   currentLevelIndex?: number;
+  onPromptRating?: () => void;
 }
 
 export const ChallengePanel: React.FC<ChallengePanelProps> = ({
@@ -43,17 +46,15 @@ export const ChallengePanel: React.FC<ChallengePanelProps> = ({
   isPro = false,
   onOpenProModal,
   currentLevelIndex = 0,
+  onPromptRating,
 }) => {
   const [showHints, setShowHints] = useState(false);
   const [hintIndex, setHintIndex] = useState(0);
+  const [unlockedHints, setUnlockedHints] = useState<Set<string>>(() => new Set());
+  const [isUnlockingHint, setIsUnlockingHint] = useState(false);
   const [hasTriggeredVictory, setHasTriggeredVictory] = useState(false);
   const [showVictoryModal, setShowVictoryModal] = useState(false);
   const [isWatchingAd, setIsWatchingAd] = useState(false);
-
-  // Preload rewarded video when challenge mode is open
-  useEffect(() => {
-    adService.prepareRewarded().catch(() => {});
-  }, [currentLevelIndex]);
 
   // Handle Watch Ad to Unlock Next Level
   const handleWatchAdToUnlock = async () => {
@@ -76,6 +77,26 @@ export const ChallengePanel: React.FC<ChallengePanelProps> = ({
     }
   };
 
+  // Handle Watch Ad to Unlock Clue
+  const handleWatchAdForHint = async (idx: number) => {
+    soundFX.playClick();
+    NativeBridge.haptic('medium');
+    setIsUnlockingHint(true);
+
+    try {
+      const earned = await adService.showRewardVideo();
+      if (earned) {
+        soundFX.playVictory();
+        NativeBridge.haptic('success');
+        setUnlockedHints((prev) => new Set(prev).add(`${level.id}_${idx}`));
+      }
+    } catch (e) {
+      console.warn('Ad error:', e);
+    } finally {
+      setIsUnlockingHint(false);
+    }
+  };
+
   // Evaluate validation criteria live
   const validation = level.validate(simulation, components, wires);
 
@@ -86,6 +107,11 @@ export const ChallengePanel: React.FC<ChallengePanelProps> = ({
       setShowVictoryModal(true);
       soundFX.playVictory();
       NativeBridge.haptic('heavy');
+
+      // Preload rewarded video just-in-time only when next level requires an ad
+      if (currentLevelIndex >= 1 && !isPro) {
+        adService.prepareRewarded().catch(() => {});
+      }
 
       // Trigger multi-stage celebratory confetti
       try {
@@ -212,7 +238,11 @@ export const ChallengePanel: React.FC<ChallengePanelProps> = ({
           onClick={() => {
             soundFX.playClick();
             NativeBridge.haptic('light');
-            setShowHints(!showHints);
+            const nextShow = !showHints;
+            setShowHints(nextShow);
+            if (nextShow && !isPro && level.hints.length > 1) {
+              adService.prepareRewarded().catch(() => {});
+            }
           }}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/20 text-amber-300 border border-amber-500/40 hover:bg-amber-500/30 text-xs font-bold transition active:scale-95"
         >
@@ -228,25 +258,41 @@ export const ChallengePanel: React.FC<ChallengePanelProps> = ({
             onClick={() => {
               soundFX.playClick();
               NativeBridge.haptic('medium');
-              if (currentLevelIndex >= 1 && !isPro && onOpenProModal) {
-                onOpenProModal();
+              if (currentLevelIndex >= 1 && !isPro) {
+                if (validation.completed) {
+                  handleWatchAdToUnlock();
+                } else if (onOpenProModal) {
+                  onOpenProModal();
+                }
               } else {
+                if (currentLevelIndex === 0 && !isPro) {
+                  adService.triggerNaturalBreakInterstitial('challenge_level_0_bottom_bar').catch(() => {});
+                }
                 onNextLevel();
               }
             }}
             className={`flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-xs font-bold transition active:scale-95 shadow-lg ${
               currentLevelIndex >= 1 && !isPro
-                ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                ? validation.completed
+                  ? 'bg-gradient-to-r from-amber-500 to-yellow-500 text-slate-950 font-black shadow-amber-500/30 animate-pulse'
+                  : 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
                 : validation.completed
                 ? 'bg-emerald-500 text-slate-950 font-black shadow-emerald-500/30 ring-2 ring-emerald-300 animate-pulse'
                 : 'bg-slate-800 text-slate-400 border border-slate-700'
             }`}
           >
             {currentLevelIndex >= 1 && !isPro ? (
-              <>
-                <Crown className="w-3.5 h-3.5 text-amber-400" />
-                <span>Next (PRO)</span>
-              </>
+              validation.completed ? (
+                <>
+                  <Film className="w-3.5 h-3.5 text-slate-950" />
+                  <span>Next (Watch Ad)</span>
+                </>
+              ) : (
+                <>
+                  <Crown className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Next (PRO)</span>
+                </>
+              )
             ) : (
               <>
                 <span>Next Level</span>
@@ -265,15 +311,51 @@ export const ChallengePanel: React.FC<ChallengePanelProps> = ({
               <h3 className="text-sm font-bold text-amber-300 flex items-center gap-1.5">
                 <Lightbulb className="w-4 h-4 text-amber-400" />
                 <span>Level Clue #{hintIndex + 1}</span>
+                {hintIndex === 0 && (
+                  <span className="text-[9px] font-mono px-1.5 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                    Free
+                  </span>
+                )}
               </h3>
               <span className="text-[10px] font-mono text-slate-400">
                 {hintIndex + 1} / {level.hints.length}
               </span>
             </div>
 
-            <p className="text-xs text-slate-200 leading-relaxed bg-amber-950/30 p-3 rounded-2xl border border-amber-500/20">
-              {level.hints[hintIndex]}
-            </p>
+            {hintIndex === 0 || isPro || unlockedHints.has(`${level.id}_${hintIndex}`) ? (
+              <p className="text-xs text-slate-200 leading-relaxed bg-amber-950/30 p-3 rounded-2xl border border-amber-500/20">
+                {level.hints[hintIndex]}
+              </p>
+            ) : (
+              <div className="bg-amber-950/40 p-3.5 rounded-2xl border border-amber-500/30 text-center space-y-2.5">
+                <div className="w-8 h-8 mx-auto rounded-xl bg-amber-500/20 text-amber-300 border border-amber-500/40 flex items-center justify-center">
+                  <Lock className="w-4 h-4 text-amber-400" />
+                </div>
+                <div>
+                  <div className="text-xs font-bold text-white">Advanced Clue #{hintIndex + 1} Locked</div>
+                  <p className="text-[10px] text-slate-300 mt-0.5">
+                    Watch a short sponsor video to reveal this circuit clue.
+                  </p>
+                </div>
+                <button
+                  onClick={() => handleWatchAdForHint(hintIndex)}
+                  disabled={isUnlockingHint}
+                  className="w-full py-2 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-black text-xs shadow-md shadow-amber-500/25 active:scale-95 transition flex items-center justify-center gap-1.5 disabled:opacity-50"
+                >
+                  {isUnlockingHint ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Loading Sponsor Video...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Film className="w-3.5 h-3.5 fill-slate-950" />
+                      <span>Watch Video to Unlock Clue</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
 
             <div className="flex items-center justify-between pt-2">
               <button
@@ -293,7 +375,13 @@ export const ChallengePanel: React.FC<ChallengePanelProps> = ({
 
               <button
                 disabled={hintIndex === level.hints.length - 1}
-                onClick={() => setHintIndex((prev) => Math.min(level.hints.length - 1, prev + 1))}
+                onClick={() => {
+                  const nextIdx = Math.min(level.hints.length - 1, hintIndex + 1);
+                  setHintIndex(nextIdx);
+                  if (nextIdx > 0 && !isPro && !unlockedHints.has(`${level.id}_${nextIdx}`)) {
+                    adService.prepareRewarded().catch(() => {});
+                  }
+                }}
                 className="px-3 py-1 rounded-xl bg-slate-900 text-xs font-bold text-slate-300 disabled:opacity-30"
               >
                 Next Clue
@@ -331,6 +419,22 @@ export const ChallengePanel: React.FC<ChallengePanelProps> = ({
               <Sparkles className="w-3.5 h-3.5 text-amber-400" />
               <span>+50 Energy Coins Earned</span>
             </div>
+
+            {/* 1-Click Rate on Google Play ribbon if not rated yet */}
+            {onPromptRating && !ratingService.hasCompletedRating() && (
+              <button
+                onClick={() => {
+                  soundFX.playClick();
+                  NativeBridge.haptic('light');
+                  setShowVictoryModal(false);
+                  onPromptRating();
+                }}
+                className="inline-flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-300 text-[11px] font-bold transition mx-auto hover:scale-105 active:scale-95"
+              >
+                <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
+                <span>Enjoying ElectroLab? Rate us ⭐</span>
+              </button>
+            )}
 
             {/* Action buttons */}
             <div className="pt-2 flex flex-col gap-2">
@@ -370,6 +474,12 @@ export const ChallengePanel: React.FC<ChallengePanelProps> = ({
                   <button
                     onClick={() => {
                       setShowVictoryModal(false);
+                      if (!isPro) {
+                        adService.triggerNaturalBreakInterstitial('challenge_level_0_victory').catch(() => {});
+                      }
+                      if (onPromptRating && ratingService.shouldPrompt('challenge_win')) {
+                        setTimeout(() => onPromptRating(), 500);
+                      }
                       onNextLevel();
                     }}
                     className="w-full py-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-green-600 text-slate-950 font-black text-sm shadow-xl shadow-emerald-500/30 hover:scale-[1.02] active:scale-95 transition"

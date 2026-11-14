@@ -3,6 +3,7 @@ import { CircuitComponent, CircuitWire, SimulationResult } from '../types/circui
 import { COMPONENT_REGISTRY } from '../engine/ComponentRegistry';
 import { soundFX } from '../audio/SoundFX';
 import { adService } from '../services/adService';
+import { ratingService } from '../services/ratingService';
 import {
   X,
   Copy,
@@ -27,6 +28,7 @@ export interface ShareModalProps {
   onOpenProModal?: () => void;
   onExportBlueprintImage?: () => void;
   canvasElement?: HTMLCanvasElement | null;
+  onPromptRating?: () => void;
 }
 
 export const ShareModal: React.FC<ShareModalProps> = ({
@@ -40,6 +42,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
   onOpenProModal: _onOpenProModal,
   onExportBlueprintImage,
   canvasElement,
+  onPromptRating,
 }) => {
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedJson, setCopiedJson] = useState(false);
@@ -478,6 +481,14 @@ export const ShareModal: React.FC<ShareModalProps> = ({
     setPdfGenerating(false);
     // Safe natural break interstitial ad trigger
     adService.triggerNaturalBreakInterstitial('export_academic_pdf').catch(() => {});
+
+    // Prompt high-satisfaction rating after generating assignment report
+    if (onPromptRating && ratingService.shouldPrompt('pdf_export')) {
+      setTimeout(() => {
+        onClose();
+        onPromptRating();
+      }, 900);
+    }
   };
 
   const handleImport = () => {

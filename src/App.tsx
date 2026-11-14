@@ -35,6 +35,7 @@ import { ShareModal } from './components/ShareModal';
 import { PresetsModal } from './components/PresetsModal';
 import { PrivacyPolicyModal } from './components/PrivacyPolicyModal';
 import { ProUpgradeModal } from './components/ProUpgradeModal';
+import { RatingModal } from './components/RatingModal';
 import { billingService } from './services/billingService';
 import { adService } from './services/adService';
 import { playStoreService } from './services/playStoreService';
@@ -105,6 +106,7 @@ export function App() {
   const [activeRealExperiment, setActiveRealExperiment] = useState<RealExperiment | null>(null);
   const [showPrivacyModal, setShowPrivacyModal] = useState<boolean>(false);
   const [showProModal, setShowProModal] = useState<boolean>(false);
+  const [showRatingModal, setShowRatingModal] = useState<boolean>(false);
   const [isPro, setIsPro] = useState<boolean>(billingService.isPro);
   const [toasts, setToasts] = useState<ToastNotification[]>([]);
 
@@ -220,6 +222,10 @@ export function App() {
         setShowProModal(false);
         return true;
       }
+      if (showRatingModal) {
+        setShowRatingModal(false);
+        return true;
+      }
       if (selectedComponentId) {
         setSelectedComponentId(null);
         return true;
@@ -241,7 +247,7 @@ export function App() {
     return () => {
       unregisterBack();
     };
-  }, [showShareModal, showPresetsModal, showPrivacyModal, showProModal, selectedComponentId, wiringFromPinId, addToast]);
+  }, [showShareModal, showPresetsModal, showPrivacyModal, showProModal, showRatingModal, selectedComponentId, wiringFromPinId, addToast]);
 
   // 1. Google Play Billing check & Auto-revocation on Refund + AdMob Init
   useEffect(() => {
@@ -450,14 +456,10 @@ export function App() {
 
     setActiveScreen(screen);
 
-    // Preload rewarded video when moving toward challenges
-    if (screen === 'challenges') {
-      adService.prepareRewarded().catch(() => {});
-    }
-
-    // High show rate optimization: Trigger interstitial only after meaningful exploration (>= 3 screen switches)
+    // High show-rate optimization: Trigger natural interstitial break after exploration (>= 3 screen switches)
+    // Guarded by canShowInterstitial to avoid unnecessary calls and dropped impressions
     screenSwitchCountRef.current += 1;
-    if (screenSwitchCountRef.current >= 3) {
+    if (screenSwitchCountRef.current >= 3 && adService.canShowInterstitial()) {
       adService.showInterstitial().then((shown) => {
         if (shown) {
           screenSwitchCountRef.current = 0;
@@ -1203,6 +1205,7 @@ export function App() {
   };
 
   const handleClearBoard = () => {
+    const hadComponents = components.length >= 3;
     setComponents([]);
     setWires([]);
     setSelectedComponentId(null);
@@ -1211,6 +1214,9 @@ export function App() {
     particleSystemRef.current.clear();
     prevBlownRef.current.clear();
     addToast('info', 'Breadboard Cleared', 'All components and wires removed.');
+    if (hadComponents) {
+      adService.triggerNaturalBreakInterstitial('clear_circuit').catch(() => {});
+    }
   };
 
   // 1-Click High-Res PNG Circuit Blueprint Export
@@ -1345,9 +1351,7 @@ export function App() {
         onClearBoard={handleClearBoard}
         isPro={isPro}
         onOpenProModal={() => setShowProModal(true)}
-        onRateApp={() => {
-          playStoreService.requestReview();
-        }}
+        onRateApp={() => setShowRatingModal(true)}
         onCheckUpdates={() => {
           addToast('info', 'Connecting to Play Store...', 'Checking for the latest updates.');
           playStoreService.checkForUpdate().then((info) => {
@@ -1743,11 +1747,6 @@ export function App() {
             particleSystemRef.current.clear();
           }}
           onNextLevel={() => {
-            adService.showInterstitial().catch(() => {});
-            // Request Google Play In-App Review after successfully beating level 2
-            if (currentLevelIndex === 1) {
-              playStoreService.requestReview().catch(() => {});
-            }
             if (currentLevelIndex < CHALLENGE_LEVELS.length - 1) {
               setCurrentLevelIndex((prev) => prev + 1);
             }
@@ -1756,6 +1755,7 @@ export function App() {
           isPro={isPro}
           onOpenProModal={() => setShowProModal(true)}
           currentLevelIndex={currentLevelIndex}
+          onPromptRating={() => setShowRatingModal(true)}
         />
       )}
 
@@ -1818,6 +1818,7 @@ export function App() {
           onOpenProModal={() => setShowProModal(true)}
           onExportBlueprintImage={handleExportImage}
           canvasElement={canvasRef.current}
+          onPromptRating={() => setShowRatingModal(true)}
         />
       )}
 
@@ -1835,6 +1836,13 @@ export function App() {
           setIsPro(true);
           addToast('success', 'Welcome to Pro!', 'All laboratory instruments & levels are unlocked.');
         }}
+      />
+
+      {/* Google Play Rating & In-App Review Modal */}
+      <RatingModal
+        isOpen={showRatingModal}
+        onClose={() => setShowRatingModal(false)}
+        onToast={addToast}
       />
 
       {/* Cyber Toast Notifications Container */}

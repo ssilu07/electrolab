@@ -47,10 +47,9 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({
     return unsub;
   }, []);
 
-  // Preload rewarded video whenever modal opens
+  // Sync Pro state when modal opens (on-demand rewarded ads instead of wasteful preloads)
   useEffect(() => {
     if (isOpen) {
-      adService.prepareRewarded().catch(() => {});
       setIsTempPro(billingService.isTemporaryPro);
       setTempMinutes(billingService.tempProRemainingMinutes);
     }
@@ -292,6 +291,8 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({
                 </p>
                 <button
                   onClick={handleWatchRewardedAd}
+                  onMouseEnter={() => adService.prepareRewarded().catch(() => {})}
+                  onTouchStart={() => adService.prepareRewarded().catch(() => {})}
                   disabled={adLoading || loading}
                   className="mt-2 px-3 py-1 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 text-[11px] font-bold transition flex items-center justify-center gap-1 mx-auto"
                 >
@@ -354,6 +355,8 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({
                 </div>
                 <button
                   onClick={handleWatchRewardedAd}
+                  onMouseEnter={() => adService.prepareRewarded().catch(() => {})}
+                  onTouchStart={() => adService.prepareRewarded().catch(() => {})}
                   disabled={adLoading || loading}
                   className="shrink-0 px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-black text-xs shadow-md shadow-amber-500/25 active:scale-95 transition flex items-center gap-1.5 disabled:opacity-50"
                 >
