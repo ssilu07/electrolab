@@ -5,6 +5,7 @@ import { soundFX } from '../audio/SoundFX';
 import { NativeBridge } from '../utils/nativeBridge';
 import { billingService } from '../services/billingService';
 import { notificationService } from '../services/notificationService';
+import { useI18n } from '../services/i18nService';
 import {
   Play,
   Pause,
@@ -15,23 +16,20 @@ import {
   VolumeX,
   Activity,
   Trash2,
-  BookOpen,
-  Trophy,
   Camera,
   X,
-  Rotate3d,
   Palette,
   FolderOpen,
   Settings,
-  Zap,
   Crown,
   Star,
   Download,
   Bell,
   BellRing,
+  Globe,
 } from 'lucide-react';
 
-export type MainNavScreen = 'circuit' | 'instruments' | '3d' | 'challenges' | 'presets';
+export type MainNavScreen = 'circuit' | 'instruments' | '3d' | 'challenges' | 'real_lab' | 'presets';
 
 export interface TopBarProps {
   activeScreen: MainNavScreen;
@@ -90,6 +88,7 @@ export const TopBar: React.FC<TopBarProps> = ({
   onRateApp,
   onCheckUpdates,
 }) => {
+  const { lang, setLanguage, t } = useI18n();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(() => notificationService.isEnabled());
   const [testNotifSending, setTestNotifSending] = useState(false);
@@ -113,14 +112,6 @@ export const TopBar: React.FC<TopBarProps> = ({
     NativeBridge.haptic('light');
     onToggleSimulate();
   };
-
-  const navTabs: { id: MainNavScreen; label: string; icon: React.FC<{ className?: string }> }[] = [
-    { id: 'circuit', label: 'Circuit', icon: Zap },
-    { id: 'instruments', label: 'Instruments', icon: Activity },
-    { id: '3d', label: '3D Lab', icon: Rotate3d },
-    { id: 'challenges', label: 'Puzzles', icon: Trophy },
-    { id: 'presets', label: 'Examples', icon: BookOpen },
-  ];
 
   return (
     <>
@@ -164,36 +155,6 @@ export const TopBar: React.FC<TopBarProps> = ({
           </div>
         </div>
 
-        {/* Center Mode Navigation Tabs (Screenshot 1, 2, 4) */}
-        <div className="hidden md:flex items-center bg-slate-900/90 p-1 rounded-2xl border border-white/10 shadow-inner">
-          {navTabs.map((tab) => {
-            const Icon = tab.icon;
-            const isActive = activeScreen === tab.id;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => {
-                  soundFX.playClick();
-                  NativeBridge.haptic('light');
-                  if (tab.id === 'presets') {
-                    onOpenPresets();
-                  } else {
-                    onSelectScreen(tab.id);
-                  }
-                }}
-                className={`flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold transition duration-200 ${
-                  isActive
-                    ? 'bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/30'
-                    : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                <Icon className="w-3.5 h-3.5" />
-                <span>{tab.label}</span>
-              </button>
-            );
-          })}
-        </div>
-
         {/* Right Action Buttons */}
         <div className="flex items-center gap-1.5 sm:gap-2">
           {/* Prominent Green SIMULATE / RUN Button (Screenshot 1) */}
@@ -209,12 +170,12 @@ export const TopBar: React.FC<TopBarProps> = ({
             {isSimulating ? (
               <>
                 <Pause className="w-3.5 h-3.5 fill-current" />
-                <span className="tracking-wide">Simulating</span>
+                <span className="tracking-wide">{t.simulating}</span>
               </>
             ) : (
               <>
                 <Play className="w-3.5 h-3.5 fill-current" />
-                <span className="tracking-wide">Simulate</span>
+                <span className="tracking-wide">{t.simulate}</span>
               </>
             )}
           </button>
@@ -311,7 +272,7 @@ export const TopBar: React.FC<TopBarProps> = ({
             <div className="flex items-center justify-between pb-2 border-b border-white/10">
               <h3 className="text-sm font-bold text-white flex items-center gap-2">
                 <Settings className="w-4 h-4 text-cyan-400" />
-                <span>Lab Settings & Options</span>
+                <span>{t.labSettings}</span>
               </h3>
               <button
                 onClick={() => setSettingsOpen(false)}
@@ -319,6 +280,45 @@ export const TopBar: React.FC<TopBarProps> = ({
               >
                 <X className="w-4 h-4" />
               </button>
+            </div>
+
+            {/* App Language Selector (English Default / Hindi) */}
+            <div className="p-2.5 rounded-2xl bg-slate-900/60 border border-white/5 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                  <Globe className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>{t.appLanguage}</span>
+                </span>
+                <span className="text-[10px] font-mono text-cyan-400 font-bold uppercase">
+                  {lang === 'en' ? '🇬🇧 EN' : '🇮🇳 HI'}
+                </span>
+              </div>
+              <div className="grid grid-cols-2 gap-1.5">
+                <button
+                  onClick={() => {
+                    setLanguage('en');
+                  }}
+                  className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 ${
+                    lang === 'en'
+                      ? 'bg-cyan-500/25 text-cyan-300 border border-cyan-400/60 shadow-sm shadow-cyan-500/20'
+                      : 'bg-slate-950 text-slate-400 border border-white/5 hover:text-white'
+                  }`}
+                >
+                  <span>🇬🇧 English</span>
+                </button>
+                <button
+                  onClick={() => {
+                    setLanguage('hi');
+                  }}
+                  className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 ${
+                    lang === 'hi'
+                      ? 'bg-amber-500/25 text-amber-300 border border-amber-400/60 shadow-sm shadow-amber-500/20'
+                      : 'bg-slate-950 text-slate-400 border border-white/5 hover:text-white'
+                  }`}
+                >
+                  <span>🇮🇳 हिन्दी</span>
+                </button>
+              </div>
             </div>
 
             {/* Pro Status & Upgrade Card */}
@@ -352,7 +352,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                       : 'bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 shadow-md shadow-amber-500/20'
                   }`}
                 >
-                  {isPro ? 'Details' : 'Upgrade'}
+                  {isPro ? t.proDetails : t.getPro}
                 </button>
               </div>
             </div>
@@ -362,8 +362,8 @@ export const TopBar: React.FC<TopBarProps> = ({
               <div className="flex items-center gap-2">
                 <Flame className={`w-4 h-4 ${willItBlow ? 'text-orange-400 animate-pulse' : 'text-slate-500'}`} />
                 <div>
-                  <span className="text-xs font-bold text-white block">Overload Physics</span>
-                  <span className="text-[10px] text-slate-400">Blow components if voltage/current exceeds limits</span>
+                  <span className="text-xs font-bold text-white block">{t.overloadPhysics}</span>
+                  <span className="text-[10px] text-slate-400">{t.overloadDesc}</span>
                 </div>
               </div>
               <button
@@ -383,8 +383,8 @@ export const TopBar: React.FC<TopBarProps> = ({
                   <Volume2 className="w-4 h-4 text-cyan-400" />
                 )}
                 <div>
-                  <span className="text-xs font-bold text-white block">Acoustic Audio FX</span>
-                  <span className="text-[10px] text-slate-400">Relay clicks, buzzers, and switch sounds</span>
+                  <span className="text-xs font-bold text-white block">{t.audioFx}</span>
+                  <span className="text-[10px] text-slate-400">{t.audioFxDesc}</span>
                 </div>
               </div>
               <button
@@ -401,8 +401,8 @@ export const TopBar: React.FC<TopBarProps> = ({
                 <div className="flex items-center gap-2">
                   <Bell className={`w-4 h-4 ${notificationsEnabled ? 'text-cyan-400' : 'text-slate-500'}`} />
                   <div>
-                    <span className="text-xs font-bold text-white block">Daily Lab Reminders & Tips</span>
-                    <span className="text-[10px] text-slate-400">1 smart challenge daily at 7:30 PM</span>
+                    <span className="text-xs font-bold text-white block">{t.dailyReminders}</span>
+                    <span className="text-[10px] text-slate-400">{t.dailyRemindersDesc}</span>
                   </div>
                 </div>
                 <button
@@ -420,7 +420,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                   className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-xl text-[11px] font-semibold text-cyan-300 hover:text-white bg-cyan-950/40 border border-cyan-500/20 transition active:scale-95 disabled:opacity-50"
                 >
                   <BellRing className="w-3 h-3 text-cyan-400" />
-                  <span>{testNotifSending ? 'Test Scheduled (in 4s)...' : 'Test Notification (Send Now)'}</span>
+                  <span>{testNotifSending ? t.testNotifSending : t.testNotif}</span>
                 </button>
               )}
             </div>
@@ -429,7 +429,7 @@ export const TopBar: React.FC<TopBarProps> = ({
             <div className="p-2.5 rounded-2xl bg-slate-900/60 border border-white/5 space-y-2">
               <span className="text-xs font-bold text-white block flex items-center gap-1.5">
                 <Palette className="w-3.5 h-3.5 text-cyan-400" />
-                <span>Visual Theme</span>
+                <span>{t.visualTheme}</span>
               </span>
               <div className="grid grid-cols-2 gap-1.5">
                 {Object.values(GLASS_THEMES).map((th) => (
@@ -462,7 +462,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                 className="flex-1 flex items-center justify-center gap-1 py-2 rounded-xl text-xs font-bold text-red-400 hover:text-red-300 bg-red-950/40 border border-red-500/30 transition active:scale-95"
               >
                 <Trash2 className="w-3.5 h-3.5" />
-                <span>Clear Board</span>
+                <span>{t.clearBoard}</span>
               </button>
 
               <button
@@ -473,7 +473,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                 className="flex-1 flex items-center justify-center gap-1 py-2 rounded-xl text-xs font-bold text-sky-400 hover:text-sky-300 bg-sky-950/40 border border-sky-500/30 transition active:scale-95"
               >
                 <Camera className="w-3.5 h-3.5" />
-                <span>Snapshot</span>
+                <span>{t.snapshot}</span>
               </button>
             </div>
 
@@ -489,7 +489,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                 >
                   <div className="flex items-center gap-2">
                     <Star className="w-3.5 h-3.5 fill-emerald-400 text-emerald-400" />
-                    <span>Rate on Google Play</span>
+                    <span>{t.ratePlay}</span>
                   </div>
                   <span className="text-[10px] text-emerald-300/80 font-mono">5★</span>
                 </button>
@@ -507,23 +507,24 @@ export const TopBar: React.FC<TopBarProps> = ({
                     <Download className="w-3.5 h-3.5" />
                     <span>Check Play Store Updates</span>
                   </div>
-                  <span className="text-[10px] text-cyan-300/80 font-mono">v1.0.2</span>
+                  <span className="text-[10px] text-cyan-300/80 font-mono">v1.0.7</span>
+                </button>
+              )}
+
+              {/* Privacy Policy */}
+              {onOpenPrivacy && (
+                <button
+                  onClick={() => {
+                    setSettingsOpen(false);
+                    onOpenPrivacy();
+                  }}
+                  className="w-full flex items-center justify-between px-3 py-1.5 rounded-xl text-[11px] text-slate-400 hover:text-slate-200 transition"
+                >
+                  <span>{t.privacyPolicy}</span>
+                  <span className="text-[9px] font-mono text-cyan-400">v1.0.7</span>
                 </button>
               )}
             </div>
-
-            {/* Privacy Policy Link */}
-            {onOpenPrivacy && (
-              <button
-                onClick={() => {
-                  onOpenPrivacy();
-                  setSettingsOpen(false);
-                }}
-                className="w-full text-center text-[11px] font-mono text-slate-400 hover:text-cyan-400 pt-1"
-              >
-                Privacy Policy & License &bull; com.royals.electolab
-              </button>
-            )}
           </div>
         </div>
       )}

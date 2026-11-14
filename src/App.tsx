@@ -19,7 +19,12 @@ import { Lab3DView } from './components/3d/Lab3DView';
 import { soundFX } from './audio/SoundFX';
 import { CHALLENGE_LEVELS } from './data/challenges';
 import { PRESET_CIRCUITS } from './data/presets';
+import { REAL_EXPERIMENTS, RealExperiment, getLocalizedExperiment } from './data/realExperiments';
+import { i18n } from './services/i18nService';
 import { TopBar, MainNavScreen } from './components/TopBar';
+import { BottomNav3D } from './components/BottomNav3D';
+import { RealLabModal } from './components/RealLabModal';
+import { RealEnvironmentWidget } from './components/RealEnvironmentWidget';
 import { ComponentDrawer } from './components/ComponentDrawer';
 import { InspectorModal } from './components/InspectorModal';
 import { Multimeter } from './components/instruments/Multimeter';
@@ -96,6 +101,8 @@ export function App() {
   // Modals & Toasts
   const [showShareModal, setShowShareModal] = useState<boolean>(false);
   const [showPresetsModal, setShowPresetsModal] = useState<boolean>(false);
+  const [showRealLabModal, setShowRealLabModal] = useState<boolean>(false);
+  const [activeRealExperiment, setActiveRealExperiment] = useState<RealExperiment | null>(null);
   const [showPrivacyModal, setShowPrivacyModal] = useState<boolean>(false);
   const [showProModal, setShowProModal] = useState<boolean>(false);
   const [isPro, setIsPro] = useState<boolean>(billingService.isPro);
@@ -199,6 +206,10 @@ export function App() {
       }
       if (showPresetsModal) {
         setShowPresetsModal(false);
+        return true;
+      }
+      if (showRealLabModal) {
+        setShowRealLabModal(false);
         return true;
       }
       if (showPrivacyModal) {
@@ -396,7 +407,47 @@ export function App() {
     }
   }, [gameMode, currentLevelIndex, addToast]);
 
+  const handleSelectRealExperiment = useCallback(
+    (exp: RealExperiment, mode: 'workbench' | '3d' = 'workbench') => {
+      adService.showInterstitial().catch(() => {});
+      setComponents(exp.components);
+      setWires(exp.wires);
+      setSelectedComponentId(null);
+      setWiringFromPinId(null);
+      solverRef.current.reset();
+      particleSystemRef.current.clear();
+      setActiveRealExperiment(exp);
+      setIsSimulating(true);
+      setGameMode('sandbox');
+      if (mode === '3d') {
+        setViewMode('3d');
+        setActiveScreen('3d');
+      } else {
+        setViewMode('workbench');
+        setActiveScreen('circuit');
+      }
+      soundFX.playVictory();
+      const loc = getLocalizedExperiment(exp, i18n.language);
+      addToast('success', `⚡ ${loc.title}`, `Real experiment active! (${loc.cost})`);
+    },
+    [addToast]
+  );
+
+  const handleUpdateComponentProperty = useCallback(
+    (compId: string, updates: Partial<CircuitComponent['properties']>) => {
+      setComponents((prev) =>
+        prev.map((c) => (c.id === compId ? { ...c, properties: { ...c.properties, ...updates } } : c))
+      );
+    },
+    []
+  );
+
   const handleSelectScreen = useCallback((screen: MainNavScreen) => {
+    if (screen === 'real_lab') {
+      setShowRealLabModal(true);
+      return;
+    }
+
     setActiveScreen(screen);
 
     // Preload rewarded video when moving toward challenges
@@ -1634,12 +1685,13 @@ export function App() {
         </div>
       )}
 
-      {/* Interactive Bottom Component Drawer (Screenshot 1 & 2) */}
+      {/* Interactive Bottom Component Drawer */}
       {(activeScreen === 'circuit' || (activeScreen === '3d' && gameMode === 'sandbox')) && (
         <ComponentDrawer
           onSpawnComponent={handleSpawnComponent}
           isPro={isPro}
           onOpenProModal={() => setShowProModal(true)}
+          activeScreen={activeScreen}
         />
       )}
 
@@ -1726,6 +1778,25 @@ export function App() {
         />
       )}
 
+      {/* Real Lab Viral DIY Experiments Modal */}
+      {showRealLabModal && (
+        <RealLabModal
+          onSelectExperiment={handleSelectRealExperiment}
+          onClose={() => setShowRealLabModal(false)}
+          isPro={isPro}
+        />
+      )}
+
+      {/* Real-World Environment Simulator Controls (Day/Night, Water Level, Laser Beam) */}
+      {activeRealExperiment && (activeScreen === 'circuit' || activeScreen === '3d') && (
+        <RealEnvironmentWidget
+          experiment={activeRealExperiment}
+          components={components}
+          onUpdateComponentProperty={handleUpdateComponentProperty}
+          onClose={() => setActiveRealExperiment(null)}
+        />
+      )}
+
       {/* Share / Export Modal */}
       {showShareModal && (
         <ShareModal
@@ -1769,42 +1840,15 @@ export function App() {
       {/* Cyber Toast Notifications Container */}
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
 
-      {/* Mobile / Tablet Bottom Navigation Bar (Screenshot 4) */}
-      <nav className="fixed bottom-0 left-0 right-0 z-30 h-14 bg-slate-950/90 backdrop-blur-2xl border-t border-white/10 px-2 flex items-center justify-around md:hidden shadow-[0_-4px_30px_rgba(0,0,0,0.8)]">
-        {[
-          { id: 'circuit', label: 'Circuit', icon: Zap },
-          { id: 'instruments', label: 'Instruments', icon: Activity },
-          { id: '3d', label: '3D Lab', icon: Rotate3d },
-          { id: 'challenges', label: 'Puzzles', icon: Trophy },
-          { id: 'presets', label: 'Examples', icon: BookOpen },
-        ].map((item) => {
-          const Icon = item.icon;
-          const isActive = activeScreen === item.id;
-          return (
-            <button
-              key={item.id}
-              onClick={() => {
-                soundFX.playClick();
-                NativeBridge.haptic('light');
-                handleSelectScreen(item.id as MainNavScreen);
-              }}
-              className={`flex flex-col items-center justify-center gap-0.5 py-1 px-3 rounded-xl transition ${
-                isActive
-                  ? 'text-cyan-400 font-bold'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              <div className={`p-1 rounded-xl transition ${isActive ? 'bg-cyan-500/20 text-cyan-400 ring-1 ring-cyan-500/40' : ''}`}>
-                <Icon className="w-4 h-4" />
-              </div>
-              <span className="text-[10px] leading-tight font-medium">{item.label}</span>
-            </button>
-          );
-        })}
-      </nav>
+      {/* 3D Mast Floating Bottom Navigation Bar */}
+      <BottomNav3D
+        activeScreen={activeScreen}
+        onSelectScreen={handleSelectScreen}
+        isRealLabActive={!!activeRealExperiment}
+      />
 
       {/* Quick Status / Hints overlay at bottom right */}
-      <div className="fixed bottom-3 right-4 z-20 pointer-events-none hidden md:flex items-center gap-3 text-[11px] font-mono text-slate-300 glass-pill px-3.5 py-1.5 rounded-full shadow-lg">
+      <div className="fixed bottom-20 sm:bottom-22 right-4 z-20 pointer-events-none hidden md:flex items-center gap-3 text-[11px] font-mono text-slate-300 glass-pill px-3.5 py-1.5 rounded-full shadow-lg">
         {viewMode === '3d' ? (
           <>
             <span className="text-cyan-400 font-semibold">Left-drag: Orbit</span>

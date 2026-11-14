@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ComponentType, ComponentCategory } from '../types/circuit';
 import { COMPONENT_REGISTRY, ComponentMeta } from '../engine/ComponentRegistry';
 import { ComponentIcon3D } from './icons3d/ComponentIcon3D';
@@ -15,14 +15,15 @@ import {
   ChevronDown,
   ChevronUp,
   Zap,
-  ShieldCheck,
   Crown,
+  Plus,
 } from 'lucide-react';
 
 interface ComponentDrawerProps {
   onSpawnComponent: (type: ComponentType) => void;
   isPro?: boolean;
   onOpenProModal?: () => void;
+  activeScreen?: string;
 }
 
 const CATEGORY_TABS: { id: 'all' | ComponentCategory; label: string; icon: React.FC<{ className?: string }> }[] = [
@@ -40,9 +41,19 @@ export const ComponentDrawer: React.FC<ComponentDrawerProps> = ({
   onSpawnComponent,
   isPro = false,
   onOpenProModal,
+  activeScreen = 'circuit',
 }) => {
+  // In 3D Lab, default to closed so the 3D scene is clean and visible; in 2D mode, start open
+  const [isOpen, setIsOpen] = useState<boolean>(() => activeScreen !== '3d');
   const [isExpanded, setIsExpanded] = useState(false);
   const [activeCategory, setActiveCategory] = useState<'all' | ComponentCategory>('all');
+
+  // Automatically minimize drawer when entering 3D Lab
+  useEffect(() => {
+    if (activeScreen === '3d') {
+      setIsOpen(false);
+    }
+  }, [activeScreen]);
 
   const metaList = Object.values(COMPONENT_REGISTRY) as ComponentMeta[];
 
@@ -76,12 +87,36 @@ export const ComponentDrawer: React.FC<ComponentDrawerProps> = ({
     NativeBridge.haptic('light');
   };
 
+  // If collapsed/closed, show compact floating side launcher pill so screen is unobstructed
+  if (!isOpen) {
+    return (
+      <div className="fixed bottom-[92px] sm:bottom-[96px] right-3 sm:right-6 z-20 pointer-events-auto select-none font-sans">
+        <button
+          onClick={() => {
+            soundFX.playClick();
+            NativeBridge.haptic('light');
+            setIsOpen(true);
+          }}
+          className="px-3.5 py-2 rounded-2xl bg-slate-900/90 hover:bg-slate-850 border border-cyan-500/40 hover:border-cyan-400 text-cyan-300 hover:text-white font-bold text-xs flex items-center gap-2 shadow-[0_8px_30px_rgba(0,0,0,0.85)] backdrop-blur-2xl transition-all duration-200 active:scale-95 group"
+          title="Open Component Palette"
+        >
+          <div className="w-5 h-5 rounded-lg bg-cyan-500/20 flex items-center justify-center text-cyan-400 group-hover:bg-cyan-500 group-hover:text-slate-950 transition">
+            <Plus className="w-3.5 h-3.5" />
+          </div>
+          <span className="tracking-wide">Parts & ICs</span>
+          <ChevronUp className="w-3.5 h-3.5 text-cyan-400 group-hover:-translate-y-0.5 transition-transform" />
+        </button>
+      </div>
+    );
+  }
+
+  // Expanded Drawer View
   return (
-    <div className="fixed bottom-14 md:bottom-3 left-1/2 -translate-x-1/2 z-20 w-[96%] max-w-4xl transition-all duration-300">
+    <div className="fixed bottom-[90px] sm:bottom-[94px] left-1/2 -translate-x-1/2 z-20 w-[96%] max-w-4xl transition-all duration-300 pointer-events-auto select-none animate-in fade-in slide-in-from-bottom-4">
       <div className="bg-slate-950/85 backdrop-blur-2xl border border-cyan-500/30 rounded-3xl p-3 shadow-[0_10px_40px_rgba(0,0,0,0.8)] space-y-2">
-        {/* Header: Category Tabs + Expand/Collapse Sheet Button */}
+        {/* Header: Category Tabs + Expand/Collapse + Close Buttons */}
         <div className="flex items-center justify-between gap-2">
-          {/* Category Chips (Screenshot 1 & 2) */}
+          {/* Category Chips */}
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none flex-1">
             {CATEGORY_TABS.map((tab) => {
               const isActive = activeCategory === tab.id;
@@ -105,18 +140,34 @@ export const ComponentDrawer: React.FC<ComponentDrawerProps> = ({
             })}
           </div>
 
-          {/* Toggle Expand / Grid Button */}
-          <button
-            onClick={() => {
-              soundFX.playClick();
-              NativeBridge.haptic('light');
-              setIsExpanded(!isExpanded);
-            }}
-            className="p-1.5 rounded-xl bg-slate-900 border border-white/10 hover:border-cyan-400 text-slate-300 hover:text-white transition shrink-0"
-            title={isExpanded ? 'Collapse Drawer' : 'Expand All Components'}
-          >
-            {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
-          </button>
+          <div className="flex items-center gap-1.5 shrink-0">
+            {/* Toggle Expand / Grid Button */}
+            <button
+              onClick={() => {
+                soundFX.playClick();
+                NativeBridge.haptic('light');
+                setIsExpanded(!isExpanded);
+              }}
+              className="p-1.5 rounded-xl bg-slate-900 border border-white/10 hover:border-cyan-400 text-slate-300 hover:text-white transition shrink-0"
+              title={isExpanded ? 'Collapse to Row' : 'Expand All Components'}
+            >
+              {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+            </button>
+
+            {/* Close / Slide Down Drawer Button */}
+            <button
+              onClick={() => {
+                soundFX.playClick();
+                NativeBridge.haptic('light');
+                setIsOpen(false);
+              }}
+              className="px-2 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-white/10 hover:border-rose-400/50 text-slate-300 hover:text-white transition shrink-0 flex items-center gap-1 text-xs font-semibold"
+              title="Close / Hide Drawer"
+            >
+              <ChevronDown className="w-4 h-4 text-cyan-400" />
+              <span className="text-[11px] hidden sm:inline">Close</span>
+            </button>
+          </div>
         </div>
 
         {/* Component Grid (Scrollable or Expanded View) */}
@@ -138,63 +189,31 @@ export const ComponentDrawer: React.FC<ComponentDrawerProps> = ({
                 onClick={() => handleSpawn(comp)}
                 className={`group relative shrink-0 flex flex-col items-center justify-center p-2 rounded-2xl bg-slate-900/70 hover:bg-slate-800/90 border shadow-lg cursor-grab active:cursor-grabbing select-none transition-all duration-200 active:scale-95 ${
                   isLocked
-                    ? 'border-amber-500/30 hover:border-amber-400 bg-gradient-to-b from-slate-900/80 to-amber-950/20'
-                    : 'border-white/10 hover:border-cyan-400/80'
-                } ${isExpanded ? 'w-full aspect-square' : 'w-20 h-24'}`}
-                title={
-                  isLocked
-                    ? `${comp.name} — ElectroLab PRO Component (Tap to Unlock or earn Free 10m Pass)`
-                    : `${comp.name} — Tap to Add or Drag onto Board`
-                }
+                    ? 'border-amber-500/25 bg-amber-950/10 hover:border-amber-400/50'
+                    : 'border-white/10 hover:border-cyan-400 hover:shadow-cyan-500/20'
+                } ${isExpanded ? 'w-full h-20' : 'w-20 h-20'}`}
+                title={comp.description}
               >
-                {/* Pro Crown Badge */}
+                {/* Pro Lock Badge */}
                 {isLocked && (
-                  <div className="absolute top-1.5 right-1.5 p-1 rounded-full bg-amber-500/25 border border-amber-500/50 text-amber-400 shadow-md flex items-center justify-center pointer-events-none z-10 animate-pulse">
-                    <Crown className="w-2.5 h-2.5" />
+                  <div className="absolute top-1.5 right-1.5 flex items-center gap-0.5 px-1 py-0.5 rounded-md bg-amber-500/20 border border-amber-500/40 text-[9px] font-mono text-amber-300 font-bold">
+                    <Crown className="w-2.5 h-2.5 text-amber-400" />
+                    <span>PRO</span>
                   </div>
                 )}
 
-                {/* 3D Component Icon */}
-                <div
-                  className={`shrink-0 p-1 rounded-xl bg-black/50 border transition shadow-inner ${
-                    isLocked
-                      ? 'border-amber-500/20 group-hover:border-amber-400/50 group-hover:shadow-[0_0_12px_rgba(245,158,11,0.25)]'
-                      : 'border-white/5 group-hover:border-cyan-400/40 group-hover:shadow-[0_0_12px_rgba(6,182,212,0.3)]'
-                  }`}
-                >
-                  <ComponentIcon3D type={comp.type} size={40} interactive={true} />
+                {/* 3D Isometric Preview Icon */}
+                <div className="w-9 h-9 flex items-center justify-center transition-transform group-hover:scale-110">
+                  <ComponentIcon3D type={comp.type} size={36} />
                 </div>
 
-                {/* Component Label */}
-                <span
-                  className={`text-[10px] font-bold transition-colors text-center line-clamp-1 mt-1 ${
-                    isLocked ? 'text-amber-200/90 group-hover:text-amber-300' : 'text-slate-200 group-hover:text-cyan-300'
-                  }`}
-                >
+                {/* Component Name */}
+                <span className="text-[10px] font-bold text-slate-300 group-hover:text-white truncate max-w-full text-center mt-1 leading-tight">
                   {shortName}
                 </span>
-
-                {/* Subtitle / Spec indicator in expanded mode */}
-                {isExpanded && (
-                  <span
-                    className={`text-[8px] font-mono -mt-0.5 line-clamp-1 ${
-                      isLocked ? 'text-amber-400/80' : 'text-cyan-400/80'
-                    }`}
-                  >
-                    {isLocked ? 'PRO' : comp.category}
-                  </span>
-                )}
               </div>
             );
           })}
-        </div>
-
-        {/* 100% Offline & Zero Ads Glowing Badge (Screenshot 1) */}
-        <div className="pt-1 flex items-center justify-center">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-950/40 border border-cyan-500/40 shadow-[0_0_15px_rgba(6,182,212,0.15)] text-[10px] font-bold text-cyan-300">
-            <ShieldCheck className="w-3.5 h-3.5 text-cyan-400" />
-            <span>100% Offline &bull; Zero Ads</span>
-          </div>
         </div>
       </div>
     </div>

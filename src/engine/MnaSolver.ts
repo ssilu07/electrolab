@@ -351,7 +351,7 @@ export class MnaCircuitSolver {
           const n1 = pinToNode.get(`${comp.id}:p1`) ?? 0;
           const n2 = pinToNode.get(`${comp.id}:p2`) ?? 0;
           const isClosed = comp.properties.closed ?? false;
-          const r = isClosed ? 0.001 : 1e8;
+          const r = isClosed ? 0.001 : 1e11;
           stampConductance(n1, n2, 1 / r);
           break;
         }
@@ -412,7 +412,7 @@ export class MnaCircuitSolver {
           const vPrev = (this.capacitorVoltages.get(`${comp.id}:vd`) ?? 0);
           if (vPrev > vf) {
             stampConductance(nA, nK, 1 / rOn);
-            stampCurrentSource(nA, nK, vf / rOn);
+            stampCurrentSource(nK, nA, vf / rOn);
           } else {
             stampConductance(nA, nK, 1e-8);
           }
@@ -428,8 +428,8 @@ export class MnaCircuitSolver {
             stampConductance(nB, nE, 1 / 50);
             stampConductance(nC, nE, 1 / 1.0);
           } else {
-            stampConductance(nB, nE, 1e-7);
-            stampConductance(nC, nE, 1e-7);
+            stampConductance(nB, nE, 1e-9);
+            stampConductance(nC, nE, 1e-9);
           }
           break;
         }
@@ -603,11 +603,14 @@ export class MnaCircuitSolver {
         const va = pinVoltages.get(`${comp.id}:anode`) ?? 0;
         const vk = pinVoltages.get(`${comp.id}:cathode`) ?? 0;
         const vd = va - vk;
-        this.capacitorVoltages.set(`${comp.id}:vd`, vd);
-
         const vf = comp.type === 'led' ? 2.0 : 0.7;
         const rOn = comp.type === 'led' ? 15 : 5;
-        const current = vd > vf ? (vd - vf) / rOn : 0;
+        const prevVd = this.capacitorVoltages.get(`${comp.id}:vd`) ?? 0;
+        const wasConducting = prevVd > vf;
+        const nextVd = !wasConducting && vd > vf ? vf + 0.15 : 0.5 * prevVd + 0.5 * vd;
+        this.capacitorVoltages.set(`${comp.id}:vd`, nextVd);
+
+        const current = wasConducting && vd > vf ? (vd - vf) / rOn : 0;
         branchCurrents.set(comp.id, current);
         const p = Math.abs(vd * current);
         componentPower.set(comp.id, p);

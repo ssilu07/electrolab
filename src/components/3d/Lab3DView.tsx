@@ -25,6 +25,7 @@ import {
   Sliders,
   Play,
   RotateCw,
+  ChevronDown,
 } from 'lucide-react';
 
 interface Lab3DViewProps {
@@ -68,6 +69,7 @@ export const Lab3DView: React.FC<Lab3DViewProps> = ({
   const [hoveredName, setHoveredName] = useState<string | null>(null);
   const [isCinematicSpin, setIsCinematicSpin] = useState<boolean>(false);
   const [cameraPreset, setCameraPreset] = useState<'perspective' | 'isometric' | 'top'>('perspective');
+  const [cameraMenuOpen, setCameraMenuOpen] = useState<boolean>(false);
 
   const themeConfig = GLASS_THEMES[glassTheme] || GLASS_THEMES.cyber;
 
@@ -550,57 +552,80 @@ export const Lab3DView: React.FC<Lab3DViewProps> = ({
         className="w-full h-full block cursor-grab active:cursor-grabbing outline-none"
       />
 
-      {/* Floating 3D Camera & Presentation Controls (Top Left below topbar) */}
-      <div className="absolute top-16 left-4 z-20 flex items-center gap-1.5 p-1.5 rounded-2xl glass-panel shadow-2xl">
-        <button
-          onClick={() => setCameraView('perspective')}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition ${
-            cameraPreset === 'perspective' ? 'glass-button-active' : 'glass-button'
-          }`}
-          title="3D Perspective View"
-        >
-          <Rotate3d className="w-3.5 h-3.5 text-cyan-400" />
-          <span>3D Lab</span>
-        </button>
-
-        <button
-          onClick={() => setCameraView('isometric')}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition ${
-            cameraPreset === 'isometric' ? 'glass-button-active' : 'glass-button'
-          }`}
-          title="Isometric View"
-        >
-          <Compass className="w-3.5 h-3.5 text-purple-400" />
-          <span>Isometric</span>
-        </button>
-
-        <button
-          onClick={() => setCameraView('top')}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition ${
-            cameraPreset === 'top' ? 'glass-button-active' : 'glass-button'
-          }`}
-          title="Top-Down PCB View"
-        >
-          <Eye className="w-3.5 h-3.5 text-emerald-400" />
-          <span>Top Down</span>
-        </button>
-
-        <div className="w-px h-4 bg-white/10 mx-0.5" />
-
+      {/* Sleek Floating 3D Camera Controls (Top Right - never collides with experiment widget) */}
+      <div className="absolute top-16 right-4 sm:right-6 z-20 flex flex-col items-end font-sans">
         <button
           onClick={() => {
-            setIsCinematicSpin((prev) => !prev);
             soundFX.playClick();
             NativeBridge.haptic('light');
+            setCameraMenuOpen(!cameraMenuOpen);
           }}
-          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold transition ${
-            isCinematicSpin ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-400/50 shadow-[0_0_12px_rgba(6,182,212,0.4)]' : 'glass-button'
-          }`}
-          title="Toggle 360° Cinematic Showcase Orbit"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-slate-950/85 backdrop-blur-2xl border border-cyan-500/30 hover:border-cyan-400 text-xs font-bold text-white shadow-xl transition active:scale-95"
+          title="3D Camera View Angles"
         >
-          <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
-          <span className="hidden sm:inline">360° Orbit</span>
+          <Compass className="w-3.5 h-3.5 text-cyan-400" />
+          <span className="capitalize">{cameraPreset === 'perspective' ? '3D View' : cameraPreset}</span>
+          <ChevronDown className={`w-3.5 h-3.5 text-cyan-400 transition-transform duration-200 ${cameraMenuOpen ? 'rotate-180' : ''}`} />
         </button>
+
+        {cameraMenuOpen && (
+          <div className="mt-1.5 p-1.5 rounded-2xl bg-slate-950/95 backdrop-blur-2xl border border-cyan-500/30 shadow-2xl flex flex-col gap-1 w-44 animate-in fade-in">
+            <button
+              onClick={() => {
+                setCameraView('perspective');
+                setCameraMenuOpen(false);
+              }}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold transition ${
+                cameraPreset === 'perspective' ? 'bg-cyan-500/25 text-cyan-300 border border-cyan-400/50' : 'text-slate-300 hover:bg-white/10'
+              }`}
+            >
+              <Rotate3d className="w-3.5 h-3.5 text-cyan-400" />
+              <span>3D Perspective</span>
+            </button>
+
+            <button
+              onClick={() => {
+                setCameraView('isometric');
+                setCameraMenuOpen(false);
+              }}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold transition ${
+                cameraPreset === 'isometric' ? 'bg-purple-500/25 text-purple-300 border border-purple-400/50' : 'text-slate-300 hover:bg-white/10'
+              }`}
+            >
+              <Compass className="w-3.5 h-3.5 text-purple-400" />
+              <span>Isometric</span>
+            </button>
+
+            <button
+              onClick={() => {
+                setCameraView('top');
+                setCameraMenuOpen(false);
+              }}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold transition ${
+                cameraPreset === 'top' ? 'bg-emerald-500/25 text-emerald-300 border border-emerald-400/50' : 'text-slate-300 hover:bg-white/10'
+              }`}
+            >
+              <Eye className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Top Down (PCB)</span>
+            </button>
+
+            <div className="h-px bg-white/10 my-0.5" />
+
+            <button
+              onClick={() => {
+                setIsCinematicSpin((prev) => !prev);
+                soundFX.playClick();
+                NativeBridge.haptic('light');
+              }}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold transition ${
+                isCinematicSpin ? 'bg-cyan-500/25 text-cyan-300 border border-cyan-400/50 shadow-[0_0_12px_rgba(6,182,212,0.4)]' : 'text-slate-300 hover:bg-white/10'
+              }`}
+            >
+              <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+              <span>360° Cinematic Orbit</span>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Wiring In-Progress 3D Notification Pill */}
