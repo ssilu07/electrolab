@@ -183,18 +183,18 @@ const TRANSLATIONS: Record<Language, Translations> = {
     // Real Lab Modal
     realLabTitle: 'Real Lab',
     realLabSubtitle: 'Real-world electronics — smart home automation, festive lights & safety alarms!',
-    realLabBadge: 'VIRAL DIY PROJECTS',
+    realLabBadge: 'REAL-WORLD PROJECTS',
     catAll: 'All Projects',
     catHome: 'Home Automation',
-    catFestive: 'Diwali & Lights',
+    catFestive: 'Festive & Lights',
     catSecurity: 'Security Alarms',
     catGadgets: 'DIY Gadgets',
-    searchPlaceholder: 'Search experiments, e.g. Street Light, Diwali, Alarm...',
+    searchPlaceholder: 'Search experiments, e.g. Street Light, Chaser, Alarm...',
     noExperimentsFound: 'No experiments found. Try a different search.',
     runSimulation: 'Run Simulation',
     viewIn3D: '3D Lab',
     diyCost: 'Est. Cost',
-    viralTagline: '⚡ Perfect for Viral Reels, TikToks & YouTube Shorts',
+    viralTagline: '⚡ Interactive Real-World Physics & Circuit Simulations',
     experimentsReady: 'Real-World DIY Experiments Ready',
 
     // Real Environment Widget
@@ -232,8 +232,8 @@ const TRANSLATIONS: Record<Language, Translations> = {
     prevStepBtn: 'Back',
     quickFillBtn: '💧 Quick Fill (95%)',
     drainTankBtn: '🧹 Drain Tank (10%)',
-    startMotor: '⚡ Start Water Motor (पंप चालू करें)',
-    stopMotor: '🛑 Stop Motor (मोटर बंद करें)',
+    startMotor: '⚡ Start Water Motor',
+    stopMotor: '🛑 Stop Motor',
     motorRunning: 'PUMP ACTIVE: Pumping water to roof...',
     motorOff: 'Motor Idle (Standby)',
     overflowAlertUrgent: '🚨 TANK FULL! TURN OFF MOTOR NOW!',
@@ -321,7 +321,7 @@ const TRANSLATIONS: Record<Language, Translations> = {
     // Real Lab Modal
     realLabTitle: 'रियल लैब',
     realLabSubtitle: 'असली दुनिया के प्रोजेक्ट्स — घर का ऑटोमेशन, दिवाली लाइट्स और सिक्योरिटी अलार्म!',
-    realLabBadge: 'वायरल DIY प्रोजेक्ट्स',
+    realLabBadge: 'रियल-वर्ल्ड प्रोजेक्ट्स',
     catAll: 'सारे प्रोजेक्ट्स',
     catHome: 'होम ऑटोमेशन',
     catFestive: 'दिवाली और लाइट्स',
@@ -332,7 +332,7 @@ const TRANSLATIONS: Record<Language, Translations> = {
     runSimulation: 'चला कर देखें',
     viewIn3D: '3D लैब',
     diyCost: 'लागत',
-    viralTagline: '⚡ Instagram Reels और Shorts के लिए बेस्ट प्रोजेक्ट्स',
+    viralTagline: '⚡ इंटरैक्टिव रियल-वर्ल्ड फिजिक्स और इलेक्ट्रॉनिक्स लैब',
     experimentsReady: 'असली दुनिया के DIY प्रोजेक्ट्स तैयार',
 
     // Real Environment Widget

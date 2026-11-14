@@ -355,15 +355,21 @@ export const RealWorldCutawayView: React.FC<RealWorldCutawayViewProps> = ({
             {/* 3rd Floor (Terrace) */}
             <div className="bg-slate-900/90 border border-white/10 rounded-xl p-2.5 mb-2 relative">
               <div className="flex items-center justify-between text-[10px] font-mono mb-1.5">
-                <span className="font-bold text-amber-300">3rd Floor Terrace (छत) · 12m</span>
-                <span className="text-slate-400">SINTEX · 1000L</span>
+                <span className="font-bold text-amber-300">
+                  {lang === 'hi' ? 'तीसरी मंजिल छत · 12m' : '3rd Floor Terrace · 12m'}
+                </span>
+                <span className="text-slate-400">
+                  {lang === 'hi' ? 'SINTEX · 1000L' : 'ROOF TANK · 1000L'}
+                </span>
               </div>
 
-              {/* Cylindrical Sintex Tank */}
+              {/* Cylindrical Roof Tank */}
               <div className="relative w-full h-32 rounded-xl bg-gradient-to-r from-slate-950 via-slate-900 to-slate-950 border-2 border-slate-700 overflow-hidden flex flex-col justify-end p-2 shadow-inner">
                 {/* Yellow Lid */}
                 <div className="absolute top-0 left-1/2 -translate-x-1/2 w-28 h-3.5 bg-amber-400 rounded-b-md border-b-2 border-amber-600 shadow flex items-center justify-center">
-                  <span className="text-[8px] font-black text-slate-950 uppercase tracking-widest">SINTEX LID</span>
+                  <span className="text-[8px] font-black text-slate-950 uppercase tracking-widest">
+                    {lang === 'hi' ? 'SINTEX LID' : 'TANK LID'}
+                  </span>
                 </div>
 
                 {/* Copper Probes */}
@@ -419,7 +425,7 @@ export const RealWorldCutawayView: React.FC<RealWorldCutawayViewProps> = ({
               <div className="flex items-center justify-between text-[10px] font-mono mb-2">
                 <span className="flex items-center gap-1.5 font-bold text-white">
                   <RotateCw className={`w-3.5 h-3.5 text-cyan-400 ${isMotorRunning ? 'animate-spin' : ''}`} />
-                  <span>0.5 HP Water Pump (मोटर)</span>
+                  <span>{lang === 'hi' ? '0.5 HP पानी की मोटर' : '0.5 HP Water Pump'}</span>
                 </span>
                 <span className={`px-2 py-0.5 rounded font-bold ${
                   isMotorRunning ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' : 'bg-slate-800 text-slate-400'
@@ -480,7 +486,13 @@ export const RealWorldCutawayView: React.FC<RealWorldCutawayViewProps> = ({
                 )}
                 <div>
                   <h5 className="text-xs font-bold font-mono text-white">
-                    {isNight ? 'Midnight Stars (रात)' : 'Full Daylight (दिन)'}
+                    {isNight
+                      ? lang === 'hi'
+                        ? 'आधी रात (अंधेरा)'
+                        : 'Midnight Stars'
+                      : lang === 'hi'
+                      ? 'तेज़ धूप (दिन)'
+                      : 'Full Daylight'}
                   </h5>
                   <p className="text-[10px] text-white/70 font-mono">
                     Lux: {Math.round(sliderValue * 1000)} lm/m²
@@ -656,11 +668,11 @@ export const RealWorldCutawayView: React.FC<RealWorldCutawayViewProps> = ({
       {isDiwali && (
         <div className="space-y-3">
           <div className="relative w-full h-56 rounded-2xl bg-gradient-to-b from-indigo-950 via-slate-950 to-black border border-amber-500/30 p-3 overflow-hidden shadow-2xl flex flex-col justify-between">
-            {/* Festive Night Sky with Diyas */}
+            {/* Festive Night Sky */}
             <div className="flex items-center justify-between text-[10px] font-mono">
               <span className="flex items-center gap-1.5 text-amber-300 font-bold">
                 <Flame className="w-4 h-4 text-amber-400 animate-bounce" />
-                <span>Festive Balcony Garland (दिवाली झालर)</span>
+                <span>{t.diwaliChaserTitle}</span>
               </span>
               <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 font-bold">
                 NE555: {(1000 / chaserSpeedMs).toFixed(1)} Hz
@@ -1153,7 +1165,15 @@ export const RealWorldCutawayView: React.FC<RealWorldCutawayViewProps> = ({
               }`}
             >
               <Power className="w-4 h-4" />
-              <span>{isTouchLatched ? 'Release Latch' : 'Latch ON (निरंतर)'}</span>
+              <span>
+                {isTouchLatched
+                  ? lang === 'hi'
+                    ? 'लैच हटाएं'
+                    : 'Release Latch'
+                  : lang === 'hi'
+                  ? 'लैच ऑन (निरंतर)'
+                  : 'Latch ON (Hold)'}
+              </span>
             </button>
           </div>
         </div>

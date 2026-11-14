@@ -171,11 +171,11 @@ export const RealLabModal: React.FC<RealLabModalProps> = ({
                         {loc.title}
                       </h3>
                       <span className="text-[11px] font-mono text-slate-400 block mt-0.5">
-                        {lang === 'hi' ? exp.name : exp.nameHi}
+                        {lang === 'hi' ? exp.name : `${exp.difficulty} Level • ${exp.componentsList.length} Parts`}
                       </span>
                     </div>
 
-                    {/* Viral Hook Quote Box */}
+                    {/* Key Highlight Quote Box */}
                     <div className="p-2 rounded-xl bg-amber-950/20 border border-amber-500/20 text-[11px] text-amber-200 italic flex items-start gap-1.5">
                       <Sparkles className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5" />
                       <span>&ldquo;{loc.hook}&rdquo;</span>

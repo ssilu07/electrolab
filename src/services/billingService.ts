@@ -42,8 +42,8 @@ const NativeGoogleBilling = registerPlugin<GoogleBillingPlugin>('GoogleBilling')
 export const BILLING_CONFIG = {
   MONTHLY_SUB_ID: 'electrolab_sub_monthly',
   LIFETIME_ID: 'electrolab_pro_lifetime',
-  DEFAULT_SUB_PRICE: '₹49/month',
-  DEFAULT_LIFETIME_PRICE: '₹599',
+  DEFAULT_SUB_PRICE: '$1.99/month',
+  DEFAULT_LIFETIME_PRICE: '$9.99',
 };
 
 class BillingService {
