@@ -21,23 +21,22 @@ headers = {
     'User-Agent': 'Antigravity'
 }
 
-req = urllib.request.Request('https://api.github.com/repos/ssilu07/electrolab/actions/runs?per_page=1', headers=headers)
+req = urllib.request.Request('https://api.github.com/repos/ssilu07/electrolab/actions/runs?per_page=3', headers=headers)
 with urllib.request.urlopen(req) as resp:
     data = json.loads(resp.read().decode())
     runs = data.get('workflow_runs', [])
-    if runs:
-        run = runs[0]
-        print(f"Latest Run: ID={run['id']}, Status={run['status']}, Conclusion={run['conclusion']}, Commit={run['head_commit']['message']}")
-        print(f"Created: {run['created_at']}, Updated: {run['updated_at']}")
+    for run in runs:
+        print(f"\n--- Run: ID={run['id']}, Event={run.get('event')}, Status={run['status']}, Conclusion={run['conclusion']} ---")
+        print(f"Commit: {run['head_commit']['message']}")
         print(f"URL: {run['html_url']}")
         try:
             req_jobs = urllib.request.Request(run['jobs_url'], headers=headers)
             with urllib.request.urlopen(req_jobs) as jresp:
                 jdata = json.loads(jresp.read().decode())
                 for job in jdata.get('jobs', []):
-                    print(f"\nJob: {job['name']} [{job['status']}]")
+                    print(f"Job: {job['name']} [{job['status']}] ({job.get('conclusion')})")
                     for step in job.get('steps', []):
                         conc = f" ({step['conclusion']})" if step['conclusion'] else ""
                         print(f"  - {step['name']}: {step['status']}{conc}")
-        except Exception as e:
+        except Exception:
             pass
