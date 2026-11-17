@@ -1025,8 +1025,8 @@ export function App() {
       soundFX.playClick();
       NativeBridge.haptic('warning');
       setShowProModal(true);
-      addToast('info', `${meta.name} (PRO)`, 'Unlock all advanced ICs & sensors or get a 10-min Free Pass via sponsor video.', {
-        label: 'Unlock',
+      addToast('info', `${meta.name} (PRO)`, 'Unlock all advanced ICs, sensors & real experiments with ElectroLab Pro.', {
+        label: 'Unlock PRO',
         onClick: () => setShowProModal(true),
       });
       return;
@@ -1067,8 +1067,8 @@ export function App() {
       soundFX.playClick();
       NativeBridge.haptic('warning');
       setShowProModal(true);
-      addToast('info', `${meta.name} (PRO)`, 'Unlock all advanced ICs & sensors or get a 10-min Free Pass via sponsor video.', {
-        label: 'Unlock',
+      addToast('info', `${meta.name} (PRO)`, 'Unlock all advanced ICs, sensors & real experiments with ElectroLab Pro.', {
+        label: 'Unlock PRO',
         onClick: () => setShowProModal(true),
       });
       return;
@@ -1784,6 +1784,7 @@ export function App() {
           onSelectExperiment={handleSelectRealExperiment}
           onClose={() => setShowRealLabModal(false)}
           isPro={isPro}
+          onOpenProModal={() => setShowProModal(true)}
         />
       )}
 

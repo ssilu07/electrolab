@@ -259,9 +259,7 @@ export const ChallengePanel: React.FC<ChallengePanelProps> = ({
               soundFX.playClick();
               NativeBridge.haptic('medium');
               if (currentLevelIndex >= 1 && !isPro) {
-                if (validation.completed) {
-                  handleWatchAdToUnlock();
-                } else if (onOpenProModal) {
+                if (onOpenProModal) {
                   onOpenProModal();
                 }
               } else {
@@ -273,26 +271,17 @@ export const ChallengePanel: React.FC<ChallengePanelProps> = ({
             }}
             className={`flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-xs font-bold transition active:scale-95 shadow-lg ${
               currentLevelIndex >= 1 && !isPro
-                ? validation.completed
-                  ? 'bg-gradient-to-r from-amber-500 to-yellow-500 text-slate-950 font-black shadow-amber-500/30 animate-pulse'
-                  : 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                ? 'bg-gradient-to-r from-amber-500 via-yellow-500 to-amber-400 text-slate-950 font-black shadow-amber-500/30'
                 : validation.completed
                 ? 'bg-emerald-500 text-slate-950 font-black shadow-emerald-500/30 ring-2 ring-emerald-300 animate-pulse'
                 : 'bg-slate-800 text-slate-400 border border-slate-700'
             }`}
           >
             {currentLevelIndex >= 1 && !isPro ? (
-              validation.completed ? (
-                <>
-                  <Film className="w-3.5 h-3.5 text-slate-950" />
-                  <span>Next (Watch Ad)</span>
-                </>
-              ) : (
-                <>
-                  <Crown className="w-3.5 h-3.5 text-amber-400" />
-                  <span>Next (PRO)</span>
-                </>
-              )
+              <>
+                <Crown className="w-3.5 h-3.5 fill-slate-950" />
+                <span>Next (PRO Only)</span>
+              </>
             ) : (
               <>
                 <span>Next Level</span>
@@ -440,36 +429,16 @@ export const ChallengePanel: React.FC<ChallengePanelProps> = ({
             <div className="pt-2 flex flex-col gap-2">
               {hasNextLevel ? (
                 currentLevelIndex >= 1 && !isPro ? (
-                  <>
-                    <button
-                      onClick={handleWatchAdToUnlock}
-                      disabled={isWatchingAd}
-                      className="w-full py-3 rounded-2xl bg-gradient-to-r from-cyan-400 via-sky-500 to-blue-600 text-slate-950 font-black text-sm shadow-xl shadow-cyan-500/30 hover:scale-[1.02] active:scale-95 transition flex items-center justify-center gap-2 disabled:opacity-50"
-                    >
-                      {isWatchingAd ? (
-                        <>
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                          <span>Loading Sponsor Video...</span>
-                        </>
-                      ) : (
-                        <>
-                          <Film className="w-4 h-4 text-slate-950" />
-                          <span>Watch Video to Play Next Level (Free)</span>
-                        </>
-                      )}
-                    </button>
-
-                    <button
-                      onClick={() => {
-                        setShowVictoryModal(false);
-                        if (onOpenProModal) onOpenProModal();
-                      }}
-                      className="w-full py-2.5 rounded-2xl bg-gradient-to-r from-amber-500/20 via-yellow-500/20 to-amber-500/20 text-amber-300 border border-amber-500/40 font-bold text-xs hover:bg-amber-500/30 active:scale-95 transition flex items-center justify-center gap-2"
-                    >
-                      <Crown className="w-3.5 h-3.5 text-amber-400" />
-                      <span>Or Unlock All Levels with Pro</span>
-                    </button>
-                  </>
+                  <button
+                    onClick={() => {
+                      setShowVictoryModal(false);
+                      if (onOpenProModal) onOpenProModal();
+                    }}
+                    className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 hover:from-amber-400 hover:to-yellow-300 text-slate-950 font-black text-sm shadow-xl shadow-amber-500/30 hover:scale-[1.02] active:scale-95 transition flex items-center justify-center gap-2"
+                  >
+                    <Crown className="w-4 h-4 fill-slate-950" />
+                    <span>Unlock Level 3 & All Advanced ICs (PRO)</span>
+                  </button>
                 ) : (
                   <button
                     onClick={() => {

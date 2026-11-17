@@ -11,12 +11,11 @@ import {
   X,
   Loader2,
   Ban,
-  Film,
-  Clock,
+  Star,
+  Lock,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
-import { billingService, BILLING_CONFIG } from '../services/billingService';
-import { adService } from '../services/adService';
+import { billingService } from '../services/billingService';
 import { soundFX } from '../audio/SoundFX';
 import { NativeBridge } from '../utils/nativeBridge';
 
@@ -24,36 +23,25 @@ interface ProUpgradeModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: () => void;
+  highlightReason?: string;
 }
 
 export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({
   isOpen,
   onClose,
   onSuccess,
+  highlightReason,
 }) => {
   const [isPro, setIsPro] = useState(billingService.isPro);
-  const [isTempPro, setIsTempPro] = useState(billingService.isTemporaryPro);
-  const [tempMinutes, setTempMinutes] = useState(billingService.tempProRemainingMinutes);
   const [loading, setLoading] = useState(false);
-  const [adLoading, setAdLoading] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
   useEffect(() => {
     const unsub = billingService.onProStatusChange((pro) => {
       setIsPro(pro);
-      setIsTempPro(billingService.isTemporaryPro);
-      setTempMinutes(billingService.tempProRemainingMinutes);
     });
     return unsub;
   }, []);
-
-  // Sync Pro state when modal opens (on-demand rewarded ads instead of wasteful preloads)
-  useEffect(() => {
-    if (isOpen) {
-      setIsTempPro(billingService.isTemporaryPro);
-      setTempMinutes(billingService.tempProRemainingMinutes);
-    }
-  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -109,38 +97,11 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({
     }
   };
 
-  const handleWatchRewardedAd = async () => {
-    soundFX.playClick();
-    NativeBridge.haptic('medium');
-    setAdLoading(true);
-    setStatusMessage('Loading sponsor video...');
-
-    try {
-      const earned = await adService.showRewardVideo();
-      if (earned) {
-        billingService.grantTemporaryPro(10);
-        soundFX.playVictory();
-        NativeBridge.haptic('success');
-        triggerCelebration();
-        setIsTempPro(true);
-        setTempMinutes(10);
-        setStatusMessage('🎉 10-Minute Pro Pass Active! Zero ads & all features unlocked.');
-        if (onSuccess) onSuccess();
-      } else {
-        setStatusMessage('Video was closed before completion. Watch fully to earn pass.');
-      }
-    } catch (err: any) {
-      setStatusMessage('Ad failed to load: ' + (err?.message || 'Please check connection.'));
-    } finally {
-      setAdLoading(false);
-    }
-  };
-
   const handleRestore = async () => {
     soundFX.playClick();
     NativeBridge.haptic('light');
     setLoading(true);
-    setStatusMessage('Checking active subscriptions on Google Play...');
+    setStatusMessage('Checking active purchases on Google Play...');
 
     try {
       const res = await billingService.restorePurchases();
@@ -151,7 +112,7 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({
         setStatusMessage('Active Pro Subscription Restored!');
         if (onSuccess) onSuccess();
       } else {
-        setStatusMessage('No active subscription found for this Google account.');
+        setStatusMessage('No active purchase found for this Google account.');
       }
     } catch (e: any) {
       setStatusMessage('Restore failed: ' + (e?.message || 'Network error'));
@@ -176,73 +137,89 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({
   return (
     <div
       onClick={onClose}
-      className="fixed inset-0 z-50 bg-black/75 backdrop-blur-md flex items-center justify-center p-4 animate-fadeIn"
+      className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 animate-fadeIn select-none"
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-md bg-gradient-to-b from-slate-900 via-slate-950 to-black rounded-3xl border border-cyan-500/30 p-5 sm:p-6 shadow-2xl relative overflow-hidden"
+        className="w-full max-w-lg bg-gradient-to-b from-slate-900 via-slate-950 to-black rounded-3xl border border-amber-500/40 p-5 sm:p-6 shadow-[0_25px_60px_rgba(0,0,0,0.95),0_0_35px_rgba(245,158,11,0.25)] relative overflow-hidden max-h-[95vh] overflow-y-auto scrollbar-thin scrollbar-thumb-amber-500/20"
       >
         {/* Glow Effects */}
-        <div className="absolute -top-24 -left-24 w-52 h-52 bg-cyan-500/15 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-24 -right-24 w-52 h-52 bg-blue-600/15 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -top-20 -left-20 w-48 h-48 bg-amber-500/20 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-20 -right-20 w-48 h-48 bg-cyan-600/20 rounded-full blur-3xl pointer-events-none" />
 
         {/* Close Button */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 p-2 text-slate-400 hover:text-white rounded-full bg-white/5 hover:bg-white/10 transition"
+          className="absolute top-4 right-4 p-2 text-slate-400 hover:text-white rounded-full bg-white/5 hover:bg-white/10 transition z-10"
           aria-label="Close"
         >
           <X className="w-4 h-4" />
         </button>
 
+        {/* Discount Urgency Pill */}
+        <div className="flex justify-center mb-2">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-gradient-to-r from-amber-500/20 via-orange-500/20 to-yellow-500/20 border border-amber-500/50 text-amber-300 text-[10px] font-black tracking-widest uppercase shadow-md animate-pulse">
+            <Sparkles className="w-3 h-3 text-amber-400" />
+            <span>{billingService.isIndia ? 'SPECIAL STUDENT OFFER • 70% OFF' : 'LIMITED TIME OFFER • 50% OFF'}</span>
+          </div>
+        </div>
+
         {/* Header */}
-        <div className="text-center pt-2 pb-4">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-tr from-cyan-500 via-sky-400 to-amber-300 p-0.5 shadow-lg shadow-cyan-500/25 mb-3">
+        <div className="text-center pt-1 pb-3">
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-tr from-amber-500 via-yellow-400 to-amber-300 p-0.5 shadow-xl shadow-amber-500/30 mb-2.5">
             <div className="w-full h-full bg-slate-950 rounded-2xl flex items-center justify-center">
-              <Crown className="w-7 h-7 text-amber-400 animate-pulse" />
+              <Crown className="w-8 h-8 text-amber-400 fill-amber-400/20" />
             </div>
           </div>
           <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight flex items-center justify-center gap-2">
-            Electro<span className="text-cyan-400">Lab</span> PRO
+            Electro<span className="text-cyan-400">Lab</span> <span className="bg-gradient-to-r from-amber-400 to-yellow-300 bg-clip-text text-transparent">PRO</span>
           </h2>
-          <p className="text-xs text-slate-400 mt-1">
-            Zero Ads &bull; Unlock All Engineering Instruments & Challenges
+          <p className="text-xs text-slate-300 mt-1 max-w-sm mx-auto">
+            Zero Ads &bull; Unlock All 12+ Real DIY Experiments, Advanced ICs & Puzzle Challenges
           </p>
+
+          {/* Contextual Reason Callout if triggered from a specific locked item */}
+          {highlightReason && (
+            <div className="mt-2.5 p-2 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-300 text-xs font-medium flex items-center justify-center gap-1.5">
+              <Lock className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+              <span>{highlightReason}</span>
+            </div>
+          )}
         </div>
 
         {/* Pro Feature Highlights */}
-        <div className="space-y-2.5 my-4">
+        <div className="space-y-2 my-3">
           {[
             {
-              icon: Ban,
-              color: 'text-rose-400',
-              title: '100% Ad-Free Experience',
-              desc: 'Completely removes banner and interstitial pop-up ads',
+              icon: Zap,
+              color: 'text-amber-400',
+              title: 'All 12+ Real-World Experiments',
+              desc: 'Water Tank Alarm, 220V Inverter, Diwali Running Chaser, Police Siren, Laser Tripwire',
             },
             {
               icon: Cpu,
-              color: 'text-amber-400',
-              title: 'All Advanced ICs & Sensors',
-              desc: '555 Precision Timer, Logic Gates (AND, OR, NOT, XOR), Relays, Transistors, LDR',
-            },
-            {
-              icon: Zap,
               color: 'text-cyan-400',
-              title: 'All Circuit Puzzles & Challenges',
-              desc: 'Instant access to all current and upcoming puzzle levels with clues',
+              title: 'All Advanced ICs & Sensors',
+              desc: 'NE555 Timer, Logic Gates (AND, OR, NOT, XOR), 2N2222 Transistor, Relays, LDR',
             },
             {
               icon: Layers,
               color: 'text-emerald-400',
-              title: 'Pro Instruments & Lab Reports',
-              desc: 'Dual-Trace Scope CSV Data Export & Bill of Materials (BOM) Netlist Generator',
+              title: 'All Challenge Puzzle Levels',
+              desc: 'Instant access to Level 3, 4, 5+ challenges with circuit design solutions',
+            },
+            {
+              icon: Ban,
+              color: 'text-rose-400',
+              title: '100% Ad-Free Forever',
+              desc: 'Zero interstitial popups and banner ads — uninterrupted hands-on learning',
             },
           ].map((item, idx) => {
             const Icon = item.icon;
             return (
               <div
                 key={idx}
-                className="flex items-start gap-3 p-2.5 rounded-2xl bg-white/[0.03] border border-white/5 hover:border-cyan-500/20 transition"
+                className="flex items-start gap-3 p-2.5 rounded-2xl bg-white/[0.04] border border-white/5 hover:border-amber-500/30 transition"
               >
                 <div className={`p-2 rounded-xl bg-white/5 shrink-0 ${item.color}`}>
                   <Icon className="w-4 h-4" />
@@ -250,7 +227,7 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({
                 <div className="flex-1 min-w-0">
                   <div className="text-xs font-bold text-white flex items-center justify-between">
                     <span>{item.title}</span>
-                    <CheckCircle2 className="w-3.5 h-3.5 text-cyan-400 shrink-0 ml-1" />
+                    <CheckCircle2 className="w-3.5 h-3.5 text-amber-400 shrink-0 ml-1" />
                   </div>
                   <p className="text-[10px] text-slate-400 mt-0.5">{item.desc}</p>
                 </div>
@@ -259,138 +236,109 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({
           })}
         </div>
 
+        {/* Social Proof Bar */}
+        <div className="flex items-center justify-center gap-1.5 py-1 text-slate-400 text-[11px] font-medium">
+          <div className="flex text-amber-400">
+            {[...Array(5)].map((_, i) => (
+              <Star key={i} className="w-3 h-3 fill-amber-400" />
+            ))}
+          </div>
+          <span>4.9/5 Rating &bull; Loved by 50,000+ STEM Students & Engineers</span>
+        </div>
+
         {/* Status Message */}
         {statusMessage && (
-          <div className="my-3 p-2.5 rounded-xl bg-cyan-950/40 border border-cyan-500/30 text-center text-xs font-mono text-cyan-300">
+          <div className="my-2.5 p-2.5 rounded-xl bg-amber-950/40 border border-amber-500/30 text-center text-xs font-mono text-amber-300">
             {statusMessage}
           </div>
         )}
 
-        {/* Action Button */}
-        {billingService.isRealPro ? (
-          <div className="p-4 rounded-2xl bg-emerald-950/50 border border-emerald-500/30 text-center">
+        {/* Action Buttons */}
+        {isPro ? (
+          <div className="p-4 rounded-2xl bg-emerald-950/50 border border-emerald-500/30 text-center mt-3">
             <div className="flex items-center justify-center gap-1.5 text-emerald-400 font-bold text-sm">
               <CheckCircle2 className="w-5 h-5" />
               <span>ElectroLab Pro Active!</span>
             </div>
             <p className="text-[10px] text-slate-400 mt-1">
-              Zero Ads &bull; All features and laboratory instruments are permanently unlocked.
+              Zero Ads &bull; All 12+ real-world experiments and advanced ICs are permanently unlocked.
             </p>
           </div>
         ) : (
-          <div className="space-y-3 pt-1">
-            {/* If Temporary Pro Pass is Active */}
-            {isTempPro && (
-              <div className="p-3 rounded-2xl bg-gradient-to-r from-amber-950/40 via-yellow-950/20 to-amber-950/40 border border-amber-500/40 text-center">
-                <div className="flex items-center justify-center gap-1.5 text-amber-300 font-bold text-xs">
-                  <Clock className="w-3.5 h-3.5 text-amber-400" />
-                  <span>Temporary Pro Pass Active (~{tempMinutes}m left)</span>
+          <div className="space-y-2.5 pt-2">
+            {/* Primary Hero Option: LIFETIME LICENSE (Best Seller) */}
+            <button
+              onClick={handleLifetime}
+              disabled={loading}
+              className="w-full p-4 rounded-2xl bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 hover:from-amber-400 hover:to-yellow-300 text-slate-950 font-black text-left transition-all duration-200 active:scale-[0.98] shadow-xl shadow-amber-500/30 border-2 border-yellow-200 flex items-center justify-between gap-3 group relative overflow-hidden"
+            >
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-slate-950 text-amber-300 uppercase tracking-wider">
+                    BEST VALUE • ONE-TIME
+                  </span>
+                  <span className="text-[11px] font-bold text-slate-800 line-through">
+                    {billingService.originalPriceDisplay}
+                  </span>
                 </div>
-                <p className="text-[10px] text-slate-400 mt-0.5">
-                  Full access unlocked. Upgrade permanently below or add +10 mins.
+                <div className="text-lg font-black text-slate-950 mt-1 flex items-baseline gap-1.5">
+                  <span>{billingService.lifetimePriceDisplay}</span>
+                  <span className="text-xs font-bold text-slate-800">Lifetime (Pay Once, Keep Forever)</span>
+                </div>
+                <p className="text-[11px] text-slate-900 font-semibold mt-0.5">
+                  No monthly auto-debit &bull; Instant permanent unlock &bull; All future updates included
                 </p>
-                <button
-                  onClick={handleWatchRewardedAd}
-                  onMouseEnter={() => adService.prepareRewarded().catch(() => {})}
-                  onTouchStart={() => adService.prepareRewarded().catch(() => {})}
-                  disabled={adLoading || loading}
-                  className="mt-2 px-3 py-1 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 text-[11px] font-bold transition flex items-center justify-center gap-1 mx-auto"
-                >
-                  <Film className="w-3 h-3 text-amber-400" />
-                  <span>+10 Mins (Watch Video)</span>
-                </button>
               </div>
-            )}
 
-            {/* Google Play Purchase Options: Stacked Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-              {/* Option 1: Monthly Subscription */}
-              <button
-                onClick={handleSubscribe}
-                disabled={loading || adLoading}
-                className="p-3 rounded-2xl bg-gradient-to-br from-cyan-500/20 via-sky-600/20 to-blue-700/20 border border-cyan-500/40 hover:border-cyan-400 text-left transition active:scale-98 flex flex-col justify-between gap-2 shadow-lg disabled:opacity-50 group"
-              >
-                <div className="flex items-center justify-between w-full">
-                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-cyan-500/30 text-cyan-300">
+              <div className="shrink-0 p-2.5 rounded-xl bg-slate-950 text-amber-400 shadow-md group-hover:scale-110 transition-transform">
+                {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Crown className="w-5 h-5 fill-amber-400" />}
+              </div>
+            </button>
+
+            {/* Secondary Option: Monthly Subscription */}
+            <button
+              onClick={handleSubscribe}
+              disabled={loading}
+              className="w-full p-3 rounded-2xl bg-white/[0.04] border border-white/10 hover:border-cyan-400 text-left transition active:scale-[0.98] flex items-center justify-between gap-3 disabled:opacity-50 group"
+            >
+              <div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300">
                     MONTHLY
                   </span>
-                  <Sparkles className="w-3.5 h-3.5 text-cyan-400 group-hover:rotate-12 transition-transform" />
+                  <span className="text-xs font-bold text-white">Monthly Student Pass</span>
                 </div>
-                <div>
-                  <div className="text-sm font-black text-white">{billingService.priceDisplay}</div>
-                  <div className="text-[10px] text-slate-400 mt-0.5">Flexible monthly student pass</div>
+                <div className="text-xs text-slate-400 mt-0.5">
+                  {billingService.priceDisplay} &bull; Cancel anytime with 1 tap in Google Play
                 </div>
-              </button>
-
-              {/* Option 2: Lifetime License */}
-              <button
-                onClick={handleLifetime}
-                disabled={loading || adLoading}
-                className="p-3 rounded-2xl bg-gradient-to-br from-amber-500/20 via-yellow-600/20 to-amber-700/20 border border-amber-500/40 hover:border-amber-400 text-left transition active:scale-98 flex flex-col justify-between gap-2 shadow-lg disabled:opacity-50 group"
-              >
-                <div className="flex items-center justify-between w-full">
-                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-amber-500/30 text-amber-300">
-                    LIFETIME • BEST VALUE
-                  </span>
-                  <Crown className="w-3.5 h-3.5 text-amber-400 group-hover:rotate-12 transition-transform" />
-                </div>
-                <div>
-                  <div className="text-sm font-black text-white">{billingService.lifetimePriceDisplay} Once</div>
-                  <div className="text-[10px] text-slate-400 mt-0.5">Pay once, keep forever</div>
-                </div>
-              </button>
-            </div>
-
-            {/* Rewarded Video Ad Option: Free 10-min Pro Pass */}
-            {!isTempPro && (
-              <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/10 hover:border-amber-500/30 flex items-center justify-between gap-3 transition">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-amber-300">
-                    <Film className="w-3.5 h-3.5 text-amber-400" />
-                    <span>Free 10-Min Pro Pass</span>
-                  </div>
-                  <p className="text-[10px] text-slate-400 mt-0.5">
-                    Watch 1 sponsor video to unlock everything free
-                  </p>
-                </div>
-                <button
-                  onClick={handleWatchRewardedAd}
-                  onMouseEnter={() => adService.prepareRewarded().catch(() => {})}
-                  onTouchStart={() => adService.prepareRewarded().catch(() => {})}
-                  disabled={adLoading || loading}
-                  className="shrink-0 px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-black text-xs shadow-md shadow-amber-500/25 active:scale-95 transition flex items-center gap-1.5 disabled:opacity-50"
-                >
-                  {adLoading ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  ) : (
-                    <Zap className="w-3.5 h-3.5 fill-slate-950" />
-                  )}
-                  <span>Watch Free</span>
-                </button>
               </div>
-            )}
+
+              <span className="text-xs font-bold text-cyan-400 group-hover:translate-x-0.5 transition-transform">
+                Subscribe &rarr;
+              </span>
+            </button>
 
             {/* Restore and Google Security note */}
             <div className="flex items-center justify-between px-1 text-[11px] text-slate-400 pt-1">
               <button
                 onClick={handleRestore}
-                disabled={loading || adLoading}
-                className="hover:text-cyan-400 transition flex items-center gap-1 font-mono"
+                disabled={loading}
+                className="hover:text-amber-400 transition flex items-center gap-1 font-mono"
               >
                 <RotateCcw className="w-3 h-3" />
-                <span>Restore Subscription</span>
+                <span>Restore Purchase</span>
               </button>
               <span className="flex items-center gap-1 text-[10px] text-slate-500">
                 <ShieldCheck className="w-3 h-3 text-emerald-400" />
-                <span>Google Play Billing v8</span>
+                <span>Google Play Billing Verified</span>
               </span>
             </div>
           </div>
         )}
 
         {/* Footer Guarantee */}
-        <p className="text-[10px] text-slate-500 text-center mt-4">
-          Cancel anytime easily via Google Play Store subscriptions. Syncs across all devices.
+        <p className="text-[10px] text-slate-500 text-center mt-3">
+          100% Safe Checkout via Google Play. Instant activation across all Android devices.
         </p>
       </div>
     </div>

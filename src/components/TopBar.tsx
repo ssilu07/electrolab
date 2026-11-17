@@ -125,27 +125,17 @@ export const TopBar: React.FC<TopBarProps> = ({
             <h1 className="font-extrabold text-xs sm:text-sm tracking-wider text-white flex items-center gap-1 leading-none">
               Electro<span className="text-cyan-400">Lab</span>
               {isPro ? (
-                billingService.isTemporaryPro ? (
-                  <button
-                    onClick={onOpenProModal}
-                    className="text-[9px] px-1.5 py-0.5 rounded-md bg-gradient-to-r from-amber-500/20 to-yellow-500/20 text-amber-300 font-mono border border-amber-500/40 ml-0.5 flex items-center gap-0.5 hover:scale-105 transition"
-                    title="Temporary Pro Pass Active - Tap to extend"
-                  >
-                    <Crown className="w-2.5 h-2.5 text-amber-400" />
-                    <span>PRO (~{billingService.tempProRemainingMinutes}m)</span>
-                  </button>
-                ) : (
-                  <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-gradient-to-r from-amber-500/20 to-yellow-500/20 text-amber-300 font-mono border border-amber-500/40 ml-0.5 flex items-center gap-0.5">
-                    <Crown className="w-2.5 h-2.5 text-amber-400" />
-                    <span>PRO</span>
-                  </span>
-                )
+                <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-gradient-to-r from-amber-500/20 to-yellow-500/20 text-amber-300 font-mono border border-amber-500/40 ml-0.5 flex items-center gap-0.5">
+                  <Crown className="w-2.5 h-2.5 text-amber-400" />
+                  <span>PRO</span>
+                </span>
               ) : (
                 <button
                   onClick={onOpenProModal}
-                  className="text-[9px] px-1.5 py-0.5 rounded-md bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 font-mono border border-cyan-500/30 ml-0.5 transition"
+                  className="text-[9px] px-1.5 py-0.5 rounded-md bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 font-black font-mono ml-0.5 transition shadow-sm shadow-amber-500/30 flex items-center gap-0.5 animate-pulse"
                 >
-                  FREE
+                  <Crown className="w-2.5 h-2.5 fill-slate-950" />
+                  <span>PRO OFFER</span>
                 </button>
               )}
             </h1>
@@ -236,12 +226,12 @@ export const TopBar: React.FC<TopBarProps> = ({
             className={`px-2.5 py-1.5 rounded-xl transition flex items-center gap-1.5 text-xs font-bold ${
               isPro
                 ? 'bg-amber-500/15 border border-amber-500/30 text-amber-300'
-                : 'bg-gradient-to-r from-amber-500/20 to-yellow-500/10 border border-amber-500/40 text-amber-300 hover:border-amber-400 active:scale-95 shadow-sm shadow-amber-500/10'
+                : 'bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 font-black shadow-md shadow-amber-500/30 border border-yellow-200 active:scale-95 animate-pulse'
             }`}
-            title={isPro ? 'ElectroLab Pro Active' : 'Upgrade to ElectroLab Pro'}
+            title={isPro ? 'ElectroLab Pro Active' : billingService.isIndia ? 'Upgrade to ElectroLab Pro (70% OFF)' : 'Upgrade to ElectroLab Pro'}
           >
-            <Crown className="w-3.5 h-3.5 text-amber-400" />
-            <span className="hidden sm:inline">{isPro ? 'PRO' : 'GET PRO'}</span>
+            <Crown className={`w-3.5 h-3.5 ${isPro ? 'text-amber-400' : 'fill-slate-950 text-slate-950'}`} />
+            <span>{isPro ? 'PRO' : billingService.isIndia ? 'PRO (₹99)' : 'PRO ($9.99)'}</span>
           </button>
 
           {/* Settings / 3-dots Menu Button */}

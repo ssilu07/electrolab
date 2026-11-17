@@ -19,6 +19,7 @@ export interface RealExperiment {
   diyCost: string;
   diyCostHi: string;
   difficulty: 'Beginner' | 'Intermediate' | 'Advanced';
+  isPro?: boolean;
   viralHook: string;
   viralHookHi: string;
   description: string;
@@ -104,6 +105,7 @@ export const REAL_EXPERIMENTS: RealExperiment[] = [
     name: 'Water Tank Overflow Alarm & Buzzer',
     nameHi: 'पानी की टंकी भरते ही बजने वाला अलार्म',
     category: 'home',
+    isPro: true,
     badge: 'MOST USEFUL',
     badgeHi: 'सबसे उपयोगी',
     diyCost: '$0.35',
@@ -201,6 +203,7 @@ export const REAL_EXPERIMENTS: RealExperiment[] = [
     name: 'Festive Running LED Chaser Light',
     nameHi: 'दिवाली की भागने वाली रनिंग LED झालर',
     category: 'festive',
+    isPro: true,
     badge: 'FESTIVE SPECIAL',
     badgeHi: 'दिवाली स्पेशल',
     diyCost: '$0.40',
@@ -259,6 +262,7 @@ export const REAL_EXPERIMENTS: RealExperiment[] = [
     name: 'Police Siren & Dual Strobe Flasher',
     nameHi: 'असली पुलिस सायरन और रेड-ब्लू फ्लैशर',
     category: 'festive',
+    isPro: true,
     badge: 'EMERGENCY TECH',
     badgeHi: 'इमरजेंसी टेक',
     diyCost: '$0.35',
@@ -320,6 +324,7 @@ export const REAL_EXPERIMENTS: RealExperiment[] = [
     name: 'Laser Tripwire Burglar Alarm (Self-Latching)',
     nameHi: 'चोर पकड़ने वाला लेज़र अलार्म (लैचिंग रिले)',
     category: 'security',
+    isPro: true,
     badge: 'SPY GADGET',
     badgeHi: 'जासूस गैजेट',
     diyCost: '$0.60',
@@ -417,6 +422,7 @@ export const REAL_EXPERIMENTS: RealExperiment[] = [
     name: '12V Car Battery to 5V USB Fast Charger',
     nameHi: 'गाड़ी की 12V बैटरी से फोन चार्ज करने वाला 5V सर्किट',
     category: 'gadgets',
+    isPro: true,
     badge: 'LIFE HACK',
     badgeHi: 'लाइफ हैक',
     diyCost: '$0.25',
@@ -465,6 +471,7 @@ export const REAL_EXPERIMENTS: RealExperiment[] = [
     name: 'Touch-Sensitive Magic Light Switch',
     nameHi: 'उंगली छूते ही जलने वाला मैजिक स्विच',
     category: 'gadgets',
+    isPro: true,
     badge: 'MAGIC TRICK',
     badgeHi: 'मैजिक ट्रिक',
     diyCost: '$0.25',

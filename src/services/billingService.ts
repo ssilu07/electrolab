@@ -39,11 +39,25 @@ interface GoogleBillingPlugin {
 // Register Native Capacitor Plugin
 const NativeGoogleBilling = registerPlugin<GoogleBillingPlugin>('GoogleBilling');
 
+// Smart regional currency detection (India vs US / UK / Tier-1 Global)
+export const isIndianRegion = (): boolean => {
+  try {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+    if (tz.includes('Calcutta') || tz.includes('Kolkata') || tz.includes('India')) return true;
+    const lang = (typeof navigator !== 'undefined' && navigator.language) || '';
+    if (lang.includes('hi') || lang.endsWith('-IN') || lang.includes('_IN')) return true;
+  } catch {}
+  return false; // Default to Tier-1 / Global pricing ($1.99/mo, $9.99 lifetime)
+};
+
 export const BILLING_CONFIG = {
   MONTHLY_SUB_ID: 'electrolab_sub_monthly',
   LIFETIME_ID: 'electrolab_pro_lifetime',
-  DEFAULT_SUB_PRICE: '$1.99/month',
-  DEFAULT_LIFETIME_PRICE: '$9.99',
+  // Tier-1 (US/UK) stays identical to original ($1.99/mo and $9.99 lifetime), India gets affordable pricing (₹49/mo and ₹99 lifetime)
+  DEFAULT_SUB_PRICE: isIndianRegion() ? '₹49/month' : '$1.99/month',
+  DEFAULT_LIFETIME_PRICE: isIndianRegion() ? '₹99' : '$9.99',
+  ORIGINAL_LIFETIME_PRICE: isIndianRegion() ? '₹499' : '$19.99',
+  CURRENCY_SYMBOL: isIndianRegion() ? '₹' : '$',
 };
 
 class BillingService {
@@ -52,8 +66,6 @@ class BillingService {
   private cachedPrice: string = BILLING_CONFIG.DEFAULT_SUB_PRICE;
   private cachedLifetimePrice: string = BILLING_CONFIG.DEFAULT_LIFETIME_PRICE;
   private listeners: ((isPro: boolean) => void)[] = [];
-  private tempProExpiry: number = 0;
-  private tempProTimer: any = null;
 
   public readonly PRODUCT_ID = BILLING_CONFIG.MONTHLY_SUB_ID;
 
@@ -63,30 +75,11 @@ class BillingService {
 
   private restoreTempProState() {
     try {
-      const saved = localStorage.getItem('electrolab_temp_pro_expiry');
-      if (saved) {
-        const expiry = parseInt(saved, 10);
-        if (!isNaN(expiry) && expiry > Date.now()) {
-          this.tempProExpiry = expiry;
-          this.scheduleTempProExpiry(expiry - Date.now());
-        } else {
-          localStorage.removeItem('electrolab_temp_pro_expiry');
-        }
-      }
+      // Clear legacy temporary pass to prevent ad-loop bypassing purchases
+      localStorage.removeItem('electrolab_temp_pro_expiry');
     } catch {
       // ignore storage errors
     }
-  }
-
-  private scheduleTempProExpiry(delayMs: number) {
-    if (this.tempProTimer) clearTimeout(this.tempProTimer);
-    this.tempProTimer = setTimeout(() => {
-      this.tempProExpiry = 0;
-      try {
-        localStorage.removeItem('electrolab_temp_pro_expiry');
-      } catch {}
-      this.updateProState(this.isRealPro);
-    }, Math.max(100, delayMs));
   }
 
   public get priceDisplay(): string {
@@ -95,6 +88,14 @@ class BillingService {
 
   public get lifetimePriceDisplay(): string {
     return this.cachedLifetimePrice;
+  }
+
+  public get originalPriceDisplay(): string {
+    return BILLING_CONFIG.ORIGINAL_LIFETIME_PRICE;
+  }
+
+  public get isIndia(): boolean {
+    return isIndianRegion();
   }
 
   /**
@@ -112,10 +113,10 @@ class BillingService {
   }
 
   /**
-   * Pro is active if Google Play subscription/lifetime is valid OR temporary pass is active
+   * Pro is active strictly via verified Google Play subscription or lifetime purchase
    */
   public get isPro(): boolean {
-    return this.isProCached || (this.tempProExpiry > Date.now());
+    return this.isProCached;
   }
 
   /**
@@ -126,31 +127,24 @@ class BillingService {
   }
 
   /**
-   * Whether user is on a temporary Rewarded Ad pass
+   * Temporary Pro is discontinued to prevent ad loop cannibalizing sales
    */
   public get isTemporaryPro(): boolean {
-    return !this.isProCached && (this.tempProExpiry > Date.now());
+    return false;
   }
 
   /**
    * Remaining minutes on temporary Pro pass
    */
   public get tempProRemainingMinutes(): number {
-    if (!this.isTemporaryPro) return 0;
-    return Math.max(1, Math.ceil((this.tempProExpiry - Date.now()) / (60 * 1000)));
+    return 0;
   }
 
   /**
-   * Grant temporary Pro pass (earned via Rewarded Video Ad)
+   * Legacy method kept for interface compatibility
    */
-  public grantTemporaryPro(durationMinutes: number = 10): void {
-    const expiry = Date.now() + durationMinutes * 60 * 1000;
-    this.tempProExpiry = expiry;
-    try {
-      localStorage.setItem('electrolab_temp_pro_expiry', expiry.toString());
-    } catch {}
-    this.scheduleTempProExpiry(durationMinutes * 60 * 1000);
-    this.updateProState(true);
+  public grantTemporaryPro(_durationMinutes: number = 10): void {
+    // Deprecated to prevent bypassing sales
   }
 
   /**

@@ -16,18 +16,22 @@ import {
   Rotate3d,
   Search,
   Tag,
+  Crown,
+  Lock,
 } from 'lucide-react';
 
 interface RealLabModalProps {
   onSelectExperiment: (experiment: RealExperiment, mode?: 'workbench' | '3d') => void;
   onClose: () => void;
   isPro?: boolean;
+  onOpenProModal?: () => void;
 }
 
 export const RealLabModal: React.FC<RealLabModalProps> = ({
   onSelectExperiment,
   onClose,
-  isPro: _isPro,
+  isPro = false,
+  onOpenProModal,
 }) => {
   const { lang, t } = useI18n();
   const [activeCategory, setActiveCategory] = useState<RealExperimentCategory>('all');
@@ -54,6 +58,12 @@ export const RealLabModal: React.FC<RealLabModalProps> = ({
   });
 
   const handleLaunch = (exp: RealExperiment, mode: 'workbench' | '3d' = 'workbench') => {
+    if (exp.isPro && !isPro) {
+      soundFX.playClick();
+      NativeBridge.haptic('warning');
+      onOpenProModal?.();
+      return;
+    }
     soundFX.playConnect();
     NativeBridge.haptic('medium');
     onSelectExperiment(exp, mode);
@@ -147,19 +157,32 @@ export const RealLabModal: React.FC<RealLabModalProps> = ({
           ) : (
             filteredExperiments.map((exp) => {
               const loc = getLocalizedExperiment(exp, lang);
+              const isLocked = Boolean(exp.isPro && !isPro);
 
               return (
                 <div
                   key={exp.id}
-                  className="bg-slate-900/70 hover:bg-slate-900/90 border border-white/10 hover:border-amber-400/50 rounded-2xl p-4 flex flex-col justify-between gap-3 transition-all duration-200 shadow-lg hover:shadow-amber-500/10 group"
+                  className={`border rounded-2xl p-4 flex flex-col justify-between gap-3 transition-all duration-200 shadow-lg group ${
+                    isLocked
+                      ? 'bg-gradient-to-b from-slate-900/90 to-amber-950/20 border-amber-500/40 hover:border-amber-400'
+                      : 'bg-slate-900/70 hover:bg-slate-900/90 border-white/10 hover:border-amber-400/50 hover:shadow-amber-500/10'
+                  }`}
                 >
                   <div className="space-y-2">
                     {/* Top Badges */}
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30 flex items-center gap-1">
-                        <Tag className="w-2.5 h-2.5" />
-                        <span>{loc.badge}</span>
-                      </span>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30 flex items-center gap-1">
+                          <Tag className="w-2.5 h-2.5" />
+                          <span>{loc.badge}</span>
+                        </span>
+                        {isLocked && (
+                          <span className="text-[9px] font-mono font-black px-2 py-0.5 rounded-full bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 flex items-center gap-1 shadow-sm shadow-amber-500/30 animate-pulse">
+                            <Crown className="w-2.5 h-2.5 fill-slate-950" />
+                            <span>PRO</span>
+                          </span>
+                        )}
+                      </div>
                       <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 font-bold">
                         {t.diyCost}: {loc.cost}
                       </span>
@@ -167,8 +190,9 @@ export const RealLabModal: React.FC<RealLabModalProps> = ({
 
                     {/* Title & Subtitle */}
                     <div>
-                      <h3 className="font-extrabold text-sm sm:text-base text-white group-hover:text-amber-300 transition leading-snug">
-                        {loc.title}
+                      <h3 className="font-extrabold text-sm sm:text-base text-white group-hover:text-amber-300 transition leading-snug flex items-center gap-1.5">
+                        <span>{loc.title}</span>
+                        {isLocked && <Lock className="w-3.5 h-3.5 text-amber-400 shrink-0" />}
                       </h3>
                       <span className="text-[11px] font-mono text-slate-400 block mt-0.5">
                         {lang === 'hi' ? exp.name : `${exp.difficulty} Level • ${exp.componentsList.length} Parts`}
@@ -206,22 +230,34 @@ export const RealLabModal: React.FC<RealLabModalProps> = ({
 
                   {/* Action Buttons */}
                   <div className="flex items-center gap-2 pt-2 border-t border-white/10">
-                    <button
-                      onClick={() => handleLaunch(exp, 'workbench')}
-                      className="flex-1 py-2 px-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-bold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-amber-500/20 active:scale-95 transition"
-                    >
-                      <Play className="w-3.5 h-3.5 fill-current" />
-                      <span>{t.runSimulation}</span>
-                    </button>
+                    {isLocked ? (
+                      <button
+                        onClick={() => handleLaunch(exp, 'workbench')}
+                        className="flex-1 py-2 px-3 rounded-xl bg-gradient-to-r from-amber-500 via-yellow-500 to-amber-400 hover:from-amber-400 hover:to-yellow-300 text-slate-950 font-black text-xs flex items-center justify-center gap-1.5 shadow-lg shadow-amber-500/25 active:scale-95 transition"
+                      >
+                        <Crown className="w-3.5 h-3.5 fill-slate-950" />
+                        <span>Unlock with PRO</span>
+                      </button>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => handleLaunch(exp, 'workbench')}
+                          className="flex-1 py-2 px-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-bold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-amber-500/20 active:scale-95 transition"
+                        >
+                          <Play className="w-3.5 h-3.5 fill-current" />
+                          <span>{t.runSimulation}</span>
+                        </button>
 
-                    <button
-                      onClick={() => handleLaunch(exp, '3d')}
-                      className="py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-cyan-300 hover:text-white font-bold text-xs flex items-center justify-center gap-1 border border-cyan-500/30 hover:border-cyan-400 transition"
-                      title="Open in Interactive 3D Lab Workbench"
-                    >
-                      <Rotate3d className="w-3.5 h-3.5" />
-                      <span className="hidden xs:inline">{t.viewIn3D}</span>
-                    </button>
+                        <button
+                          onClick={() => handleLaunch(exp, '3d')}
+                          className="py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-cyan-300 hover:text-white font-bold text-xs flex items-center justify-center gap-1 border border-cyan-500/30 hover:border-cyan-400 transition"
+                          title="Open in Interactive 3D Lab Workbench"
+                        >
+                          <Rotate3d className="w-3.5 h-3.5" />
+                          <span className="hidden xs:inline">{t.viewIn3D}</span>
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
               );
