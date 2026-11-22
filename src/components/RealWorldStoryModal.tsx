@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { RealExperiment, getLocalizedExperiment } from '../data/realExperiments';
 import { useI18n } from '../services/i18nService';
+import { adService } from '../services/adService';
 import { soundFX } from '../audio/SoundFX';
 import { NativeBridge } from '../utils/nativeBridge';
 import confetti from 'canvas-confetti';
@@ -39,6 +40,13 @@ export const RealWorldStoryModal: React.FC<RealWorldStoryModalProps> = ({
   const [activeTab, setActiveTab] = useState<'story' | 'cutaway' | 'challenge'>('story');
   const [currentStep, setCurrentStep] = useState<number>(1);
   const [completedChallengeSteps, setCompletedChallengeSteps] = useState<number[]>([]);
+
+  useEffect(() => {
+    adService.setOverlayOpen('real_world_story_modal', true).catch(() => {});
+    return () => {
+      adService.setOverlayOpen('real_world_story_modal', false).catch(() => {});
+    };
+  }, []);
 
   // Detailed bilingual story steps for all 9 experiments
   const getStorySteps = () => {

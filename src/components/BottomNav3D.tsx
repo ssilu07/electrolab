@@ -47,7 +47,10 @@ export const BottomNav3D: React.FC<BottomNav3DProps> = ({
   };
 
   return (
-    <nav className="fixed bottom-2.5 sm:bottom-4 left-1/2 -translate-x-1/2 z-40 max-w-[98vw] pointer-events-auto select-none font-sans">
+    <nav
+      style={{ bottom: 'calc(var(--ad-banner-height, 0px) + 10px)' }}
+      className="fixed left-1/2 -translate-x-1/2 z-40 max-w-[98vw] pointer-events-auto select-none font-sans transition-[bottom] duration-200"
+    >
       {/* 3D Floating Glassmorphic Dock Container */}
       <div className="relative p-1.5 sm:p-2 rounded-2xl sm:rounded-3xl bg-gradient-to-b from-slate-900/95 via-[#0b101d]/98 to-[#04060d]/98 backdrop-blur-2xl border-t border-white/25 border-x border-white/10 border-b border-black/90 shadow-[0_16px_45px_rgba(0,0,0,0.85),0_6px_18px_rgba(0,0,0,0.65),inset_0_1px_1px_rgba(255,255,255,0.22),inset_0_-2px_4px_rgba(0,0,0,0.85)] flex items-center justify-center gap-1 sm:gap-2">
         {items.map((item) => {

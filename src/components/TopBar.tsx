@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ViewMode, GlassTheme } from '../types/circuit';
 import { GLASS_THEMES } from '../theme/glassTheme';
 import { soundFX } from '../audio/SoundFX';
 import { NativeBridge } from '../utils/nativeBridge';
+import { adService } from '../services/adService';
 import { billingService } from '../services/billingService';
 import { notificationService } from '../services/notificationService';
 import { useI18n } from '../services/i18nService';
@@ -92,6 +93,13 @@ export const TopBar: React.FC<TopBarProps> = ({
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(() => notificationService.isEnabled());
   const [testNotifSending, setTestNotifSending] = useState(false);
+
+  useEffect(() => {
+    adService.setOverlayOpen('settings_drawer', settingsOpen).catch(() => {});
+    return () => {
+      adService.setOverlayOpen('settings_drawer', false).catch(() => {});
+    };
+  }, [settingsOpen]);
 
   const handleToggleNotifications = async () => {
     const next = !notificationsEnabled;

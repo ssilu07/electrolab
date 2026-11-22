@@ -90,7 +90,10 @@ export const ComponentDrawer: React.FC<ComponentDrawerProps> = ({
   // If collapsed/closed, show compact floating side launcher pill so screen is unobstructed
   if (!isOpen) {
     return (
-      <div className="fixed bottom-[92px] sm:bottom-[96px] right-3 sm:right-6 z-20 pointer-events-auto select-none font-sans">
+      <div
+        style={{ bottom: 'calc(var(--ad-banner-height, 0px) + 96px)' }}
+        className="fixed right-3 sm:right-6 z-20 pointer-events-auto select-none font-sans transition-[bottom] duration-200"
+      >
         <button
           onClick={() => {
             soundFX.playClick();
@@ -112,7 +115,10 @@ export const ComponentDrawer: React.FC<ComponentDrawerProps> = ({
 
   // Expanded Drawer View
   return (
-    <div className="fixed bottom-[90px] sm:bottom-[94px] left-1/2 -translate-x-1/2 z-20 w-[96%] max-w-4xl transition-all duration-300 pointer-events-auto select-none animate-in fade-in slide-in-from-bottom-4">
+    <div
+      style={{ bottom: 'calc(var(--ad-banner-height, 0px) + 96px)' }}
+      className="fixed left-1/2 -translate-x-1/2 z-20 w-[96%] max-w-4xl transition-all duration-300 pointer-events-auto select-none animate-in fade-in slide-in-from-bottom-4"
+    >
       <div className="bg-slate-950/85 backdrop-blur-2xl border border-cyan-500/30 rounded-3xl p-3 shadow-[0_10px_40px_rgba(0,0,0,0.8)] space-y-2">
         {/* Header: Category Tabs + Expand/Collapse + Close Buttons */}
         <div className="flex items-center justify-between gap-2">

@@ -54,34 +54,23 @@ export const ChallengePanel: React.FC<ChallengePanelProps> = ({
   const [isUnlockingHint, setIsUnlockingHint] = useState(false);
   const [hasTriggeredVictory, setHasTriggeredVictory] = useState(false);
   const [showVictoryModal, setShowVictoryModal] = useState(false);
-  const [isWatchingAd, setIsWatchingAd] = useState(false);
+  const [hintAdMessage, setHintAdMessage] = useState<string | null>(null);
 
-  // Handle Watch Ad to Unlock Next Level
-  const handleWatchAdToUnlock = async () => {
-    soundFX.playClick();
-    NativeBridge.haptic('medium');
-    setIsWatchingAd(true);
+  // Pause banner whenever a challenge modal is open to prevent accidental clicks
+  useEffect(() => {
+    const isModalOpen = showHints || showVictoryModal;
+    adService.setOverlayOpen('challenge_modal', isModalOpen).catch(() => {});
+    return () => {
+      adService.setOverlayOpen('challenge_modal', false).catch(() => {});
+    };
+  }, [showHints, showVictoryModal]);
 
-    try {
-      const earned = await adService.showRewardVideo();
-      if (earned) {
-        soundFX.playVictory();
-        NativeBridge.haptic('success');
-        setShowVictoryModal(false);
-        onNextLevel();
-      }
-    } catch (e) {
-      console.warn('Ad error:', e);
-    } finally {
-      setIsWatchingAd(false);
-    }
-  };
-
-  // Handle Watch Ad to Unlock Clue
+  // Handle Watch Ad to Unlock Clue (strictly on-demand — no wasted speculative preloads)
   const handleWatchAdForHint = async (idx: number) => {
     soundFX.playClick();
     NativeBridge.haptic('medium');
     setIsUnlockingHint(true);
+    setHintAdMessage(null);
 
     try {
       const earned = await adService.showRewardVideo();
@@ -89,9 +78,20 @@ export const ChallengePanel: React.FC<ChallengePanelProps> = ({
         soundFX.playVictory();
         NativeBridge.haptic('success');
         setUnlockedHints((prev) => new Set(prev).add(`${level.id}_${idx}`));
+        setHintAdMessage(null);
+      } else {
+        const reason = adService.getLastRewardFailureReason();
+        if (reason === 'dismissed') {
+          setHintAdMessage('Watch the full video to unlock this clue.');
+        } else if (reason === 'offline') {
+          setHintAdMessage('Connect to the internet to load the sponsor video.');
+        } else {
+          setHintAdMessage('Sponsor video is temporarily unavailable. Please try again in a moment.');
+        }
       }
     } catch (e) {
       console.warn('Ad error:', e);
+      setHintAdMessage('Sponsor video could not be loaded right now.');
     } finally {
       setIsUnlockingHint(false);
     }
@@ -108,9 +108,9 @@ export const ChallengePanel: React.FC<ChallengePanelProps> = ({
       soundFX.playVictory();
       NativeBridge.haptic('heavy');
 
-      // Preload rewarded video just-in-time only when next level requires an ad
-      if (currentLevelIndex >= 1 && !isPro) {
-        adService.prepareRewarded().catch(() => {});
+      // Warm interstitial just-in-time for Level 1 -> Level 2 transition
+      if (currentLevelIndex === 0 && !isPro && hasNextLevel) {
+        adService.warmInterstitial('challenge_victory').catch(() => {});
       }
 
       // Trigger multi-stage celebratory confetti
@@ -142,7 +142,7 @@ export const ChallengePanel: React.FC<ChallengePanelProps> = ({
     } else if (!validation.completed && hasTriggeredVictory) {
       setHasTriggeredVictory(false);
     }
-  }, [validation.completed, hasTriggeredVictory]);
+  }, [validation.completed, hasTriggeredVictory, currentLevelIndex, isPro, hasNextLevel]);
 
   // Reset victory flag when level changes
   useEffect(() => {
@@ -220,8 +220,11 @@ export const ChallengePanel: React.FC<ChallengePanelProps> = ({
         </div>
       </div>
 
-      {/* Bottom Level Controls Bar (Screenshot 3) */}
-      <div className="fixed bottom-14 md:bottom-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 bg-slate-950/90 backdrop-blur-2xl border border-white/15 px-3 py-2 rounded-2xl shadow-2xl">
+      {/* Bottom Level Controls Bar — lifted cleanly above BottomNav3D and Ad Banner */}
+      <div
+        style={{ bottom: 'calc(var(--ad-banner-height, 0px) + 98px)' }}
+        className="fixed left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 bg-slate-950/90 backdrop-blur-2xl border border-white/15 px-3 py-2 rounded-2xl shadow-2xl transition-[bottom] duration-200"
+      >
         <button
           onClick={() => {
             soundFX.playClick();
@@ -238,11 +241,8 @@ export const ChallengePanel: React.FC<ChallengePanelProps> = ({
           onClick={() => {
             soundFX.playClick();
             NativeBridge.haptic('light');
-            const nextShow = !showHints;
-            setShowHints(nextShow);
-            if (nextShow && !isPro && level.hints.length > 1) {
-              adService.prepareRewarded().catch(() => {});
-            }
+            setHintAdMessage(null);
+            setShowHints((prev) => !prev);
           }}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/20 text-amber-300 border border-amber-500/40 hover:bg-amber-500/30 text-xs font-bold transition active:scale-95"
         >
@@ -343,20 +343,31 @@ export const ChallengePanel: React.FC<ChallengePanelProps> = ({
                     </>
                   )}
                 </button>
+                {hintAdMessage && (
+                  <p className="text-[11px] text-amber-200/90 bg-amber-500/10 border border-amber-500/25 rounded-xl px-2.5 py-1.5">
+                    {hintAdMessage}
+                  </p>
+                )}
               </div>
             )}
 
             <div className="flex items-center justify-between pt-2">
               <button
                 disabled={hintIndex === 0}
-                onClick={() => setHintIndex((prev) => Math.max(0, prev - 1))}
+                onClick={() => {
+                  setHintAdMessage(null);
+                  setHintIndex((prev) => Math.max(0, prev - 1));
+                }}
                 className="px-3 py-1 rounded-xl bg-slate-900 text-xs font-bold text-slate-300 disabled:opacity-30"
               >
                 Previous
               </button>
 
               <button
-                onClick={() => setShowHints(false)}
+                onClick={() => {
+                  setHintAdMessage(null);
+                  setShowHints(false);
+                }}
                 className="px-4 py-1.5 rounded-xl bg-amber-500 text-slate-950 text-xs font-bold"
               >
                 Got It
@@ -365,11 +376,8 @@ export const ChallengePanel: React.FC<ChallengePanelProps> = ({
               <button
                 disabled={hintIndex === level.hints.length - 1}
                 onClick={() => {
-                  const nextIdx = Math.min(level.hints.length - 1, hintIndex + 1);
-                  setHintIndex(nextIdx);
-                  if (nextIdx > 0 && !isPro && !unlockedHints.has(`${level.id}_${nextIdx}`)) {
-                    adService.prepareRewarded().catch(() => {});
-                  }
+                  setHintAdMessage(null);
+                  setHintIndex((prev) => Math.min(level.hints.length - 1, prev + 1));
                 }}
                 className="px-3 py-1 rounded-xl bg-slate-900 text-xs font-bold text-slate-300 disabled:opacity-30"
               >

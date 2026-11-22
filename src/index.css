@@ -9,6 +9,8 @@
     --glass-border-accent: rgba(6, 182, 212, 0.45);
     --glass-accent: #06b6d4;
     --glass-glow: rgba(6, 182, 212, 0.25);
+    --ad-banner-height: 0px;
+    --ad-banner-raw-height: 0px;
   }
 
   [data-glass-theme="midnight"] {

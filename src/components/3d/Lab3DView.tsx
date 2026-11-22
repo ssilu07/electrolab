@@ -643,7 +643,10 @@ export const Lab3DView: React.FC<Lab3DViewProps> = ({
       )}
 
       {/* 3D Glass Badge Indicator (Bottom Left) */}
-      <div className="absolute bottom-20 left-4 z-20 hidden md:flex items-center gap-2 px-3 py-1.5 rounded-2xl glass-panel text-[11px] font-mono text-slate-300">
+      <div
+        style={{ bottom: 'calc(var(--ad-banner-height, 0px) + 84px)' }}
+        className="absolute left-4 z-20 hidden md:flex items-center gap-2 px-3 py-1.5 rounded-2xl glass-panel text-[11px] font-mono text-slate-300 transition-[bottom] duration-200"
+      >
         <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
         <span>3D WebGL Engine</span>
         <span className="text-white/30">•</span>

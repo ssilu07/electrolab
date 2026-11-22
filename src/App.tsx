@@ -108,6 +108,7 @@ export function App() {
   const [showProModal, setShowProModal] = useState<boolean>(false);
   const [showRatingModal, setShowRatingModal] = useState<boolean>(false);
   const [isPro, setIsPro] = useState<boolean>(billingService.isPro);
+  const [bannerSafeOffset, setBannerSafeOffset] = useState<number>(() => adService.getBannerMetrics().safeOffset);
   const [toasts, setToasts] = useState<ToastNotification[]>([]);
 
   // Camera Pan & Zoom
@@ -263,6 +264,10 @@ export function App() {
       }
     });
 
+    const unsubBanner = adService.onBannerHeightChange(({ safeOffset }) => {
+      setBannerSafeOffset(safeOffset);
+    });
+
     const unsub = billingService.onProStatusChange((proActive) => {
       setIsPro(proActive);
       if (proActive) {
@@ -271,8 +276,31 @@ export function App() {
         adService.showBanner().catch(() => {});
       }
     });
-    return unsub;
+    return () => {
+      unsubBanner();
+      unsub();
+    };
   }, [addToast]);
+
+  // 1a. Hide native AdMob banner whenever any modal overlay is open (prevents accidental clicks & AdMob policy violations)
+  const hasOverlayModal =
+    showShareModal ||
+    showPresetsModal ||
+    showRealLabModal ||
+    showPrivacyModal ||
+    showProModal ||
+    showRatingModal;
+
+  useEffect(() => {
+    adService.setOverlayOpen('app_modal', hasOverlayModal).catch(() => {});
+  }, [hasOverlayModal]);
+
+  // 1a-ii. Just-in-time interstitial warmup when user opens high-intent modals (Presets / Real Lab / Share)
+  useEffect(() => {
+    if (!isPro && (showPresetsModal || showRealLabModal || showShareModal)) {
+      adService.warmInterstitial('modal_open').catch(() => {});
+    }
+  }, [isPro, showPresetsModal, showRealLabModal, showShareModal]);
 
   // 1b. Google Play Store In-App Updates & Live Direct Connection
   useEffect(() => {
@@ -415,7 +443,6 @@ export function App() {
 
   const handleSelectRealExperiment = useCallback(
     (exp: RealExperiment, mode: 'workbench' | '3d' = 'workbench') => {
-      adService.showInterstitial().catch(() => {});
       setComponents(exp.components);
       setWires(exp.wires);
       setSelectedComponentId(null);
@@ -456,10 +483,11 @@ export function App() {
 
     setActiveScreen(screen);
 
-    // High show-rate optimization: Trigger natural interstitial break after exploration (>= 3 screen switches)
-    // Guarded by canShowInterstitial to avoid unnecessary calls and dropped impressions
+    // High show-rate optimization: warm at switch #2, display instantaneously at switch #3
     screenSwitchCountRef.current += 1;
-    if (screenSwitchCountRef.current >= 3 && adService.canShowInterstitial()) {
+    if (screenSwitchCountRef.current === 2 && adService.canShowInterstitial()) {
+      adService.warmInterstitial('screen_switch_prefetch').catch(() => {});
+    } else if (screenSwitchCountRef.current >= 3 && adService.canShowInterstitial()) {
       adService.showInterstitial().then((shown) => {
         if (shown) {
           screenSwitchCountRef.current = 0;
@@ -1632,7 +1660,10 @@ export function App() {
       )}
 
       {/* Floating HUD: Live Circuit Telemetry (Bottom Left) */}
-      <div className="fixed bottom-20 left-4 z-20 hidden lg:flex items-center gap-4 glass-panel rounded-2xl px-3.5 py-2 text-xs font-mono shadow-2xl">
+      <div
+        style={{ bottom: 'calc(var(--ad-banner-height, 0px) + 84px)' }}
+        className="fixed left-4 z-20 hidden lg:flex items-center gap-4 glass-panel rounded-2xl px-3.5 py-2 text-xs font-mono shadow-2xl transition-[bottom] duration-200"
+      >
         <div className="flex items-center gap-1.5">
           <Activity className="w-3.5 h-3.5 text-cyan-400" />
           <span className="text-slate-400">Nodes:</span>
@@ -1659,9 +1690,9 @@ export function App() {
         </div>
       </div>
 
-      {/* Floating Zoom & Pan Controls (Bottom Right - only in 2D mode) */}
+      {/* Floating Zoom & Pan Controls (Below right toolbar on Mobile / Bottom Right on Desktop — zero banner or drawer overlap) */}
       {viewMode !== '3d' && (
-        <div className="fixed bottom-12 right-4 z-20 flex items-center gap-1.5 glass-panel p-1 rounded-2xl shadow-xl">
+        <div className="fixed top-[288px] right-3 flex-col md:top-auto md:bottom-[calc(var(--ad-banner-height,0px)+18px)] md:right-4 md:flex-row z-20 flex items-center gap-1.5 glass-panel p-1 rounded-2xl shadow-xl transition-[bottom] duration-200">
           <button
             onClick={() => setZoom((prev) => Math.min(2.5, prev * 1.15))}
             className="p-1.5 glass-button rounded-xl text-slate-300 transition"
@@ -1763,7 +1794,6 @@ export function App() {
       {showPresetsModal && (
         <PresetsModal
           onSelectPreset={(comps, wrs) => {
-            adService.showInterstitial().catch(() => {});
             setComponents(comps);
             setWires(wrs);
             setSelectedComponentId(null);
@@ -1856,8 +1886,20 @@ export function App() {
         isRealLabActive={!!activeRealExperiment}
       />
 
+      {/* Dedicated Non-Interactive Safe-Zone Backdrop behind Native AdMob Banner (prevents accidental clicks & canvas overlap) */}
+      {bannerSafeOffset > 0 && (
+        <div
+          aria-hidden="true"
+          style={{ height: `${bannerSafeOffset}px` }}
+          className="fixed bottom-0 left-0 right-0 z-30 bg-[#030712]/95 border-t border-white/10 pointer-events-auto"
+        />
+      )}
+
       {/* Quick Status / Hints overlay at bottom right */}
-      <div className="fixed bottom-20 sm:bottom-22 right-4 z-20 pointer-events-none hidden md:flex items-center gap-3 text-[11px] font-mono text-slate-300 glass-pill px-3.5 py-1.5 rounded-full shadow-lg">
+      <div
+        style={{ bottom: 'calc(var(--ad-banner-height, 0px) + 74px)' }}
+        className="fixed right-4 z-20 pointer-events-none hidden md:flex items-center gap-3 text-[11px] font-mono text-slate-300 glass-pill px-3.5 py-1.5 rounded-full shadow-lg transition-[bottom] duration-200"
+      >
         {viewMode === '3d' ? (
           <>
             <span className="text-cyan-400 font-semibold">Left-drag: Orbit</span>
