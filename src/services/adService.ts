@@ -1,5 +1,6 @@
 import {
   AdMob,
+  AdmobConsentStatus,
   BannerAdPosition,
   BannerAdSize,
   BannerAdPluginEvents,
@@ -238,6 +239,25 @@ class AdService {
     }
 
     try {
+      // Request Google UMP consent (GDPR/EEA/UK) before initializing ads for higher fill & eCPM
+      if (this.isOnline()) {
+        try {
+          const consentInfo = await Promise.race([
+            AdMob.requestConsentInfo(),
+            new Promise<null>((resolve) => setTimeout(() => resolve(null), 5000)),
+          ]);
+          if (
+            consentInfo &&
+            consentInfo.isConsentFormAvailable &&
+            consentInfo.status === AdmobConsentStatus.REQUIRED
+          ) {
+            await AdMob.showConsentForm();
+          }
+        } catch (consentErr) {
+          console.warn('[AdService] UMP consent check skipped/failed:', consentErr);
+        }
+      }
+
       await AdMob.initialize({
         initializeForTesting: ADMOB_CONFIG.IS_TEST_MODE,
       });
@@ -568,7 +588,7 @@ class AdService {
   public async warmInterstitial(reason = 'high_intent'): Promise<boolean> {
     if (billingService.isPro || !Capacitor.isNativePlatform()) return false;
     if (this.isInterstitialPrepared || this.isPreparingInterstitial) return this.isInterstitialPrepared;
-    if (!this.canShowInterstitial(reason === 'modal_open' || reason === 'challenge_victory')) {
+    if (!this.canShowInterstitial(reason === 'challenge_victory')) {
       return false;
     }
     if (!this.canAttemptLoad('interstitial')) return false;

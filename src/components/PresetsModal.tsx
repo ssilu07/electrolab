@@ -1,9 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { PRESET_CIRCUITS, CircuitPreset } from '../data/presets';
 import { CircuitComponent, CircuitWire } from '../types/circuit';
 import { soundFX } from '../audio/SoundFX';
 import { adService } from '../services/adService';
-import { X, BookOpen, ArrowRight, Sparkles, Crown } from 'lucide-react';
+import { X, BookOpen, ArrowRight, Sparkles, Crown, Film, Loader2 } from 'lucide-react';
 
 interface PresetsModalProps {
   onSelectPreset: (components: CircuitComponent[], wires: CircuitWire[]) => void;
@@ -18,6 +18,9 @@ export const PresetsModal: React.FC<PresetsModalProps> = ({
   isPro = false,
   onOpenProModal,
 }) => {
+  const [unlockingId, setUnlockingId] = useState<string | null>(null);
+  const [rewardError, setRewardError] = useState<string | null>(null);
+
   const handleLoad = (preset: CircuitPreset) => {
     if (preset.isPro && !isPro) {
       soundFX.playClick();
@@ -29,6 +32,32 @@ export const PresetsModal: React.FC<PresetsModalProps> = ({
     // Safe natural break interstitial ad trigger
     adService.triggerNaturalBreakInterstitial('load_preset').catch(() => {});
     onClose();
+  };
+
+  const handleWatchAdUnlock = async (preset: CircuitPreset) => {
+    if (unlockingId) return;
+    soundFX.playClick();
+    setRewardError(null);
+    setUnlockingId(preset.id);
+    try {
+      const earned = await adService.showRewardVideo();
+      if (earned) {
+        soundFX.playConnect();
+        onSelectPreset(preset.components, preset.wires);
+        onClose();
+      } else {
+        const reason = adService.getLastRewardFailureReason();
+        if (reason === 'offline') {
+          setRewardError('Connect to the internet to watch a short video.');
+        } else if (reason === 'dismissed') {
+          setRewardError('Watch the full video to unlock this preset.');
+        } else {
+          setRewardError('No video ad ready right now. Try again in a moment.');
+        }
+      }
+    } finally {
+      setUnlockingId(null);
+    }
   };
 
   return (
@@ -94,30 +123,48 @@ export const PresetsModal: React.FC<PresetsModalProps> = ({
                   <p className="text-xs text-slate-400 leading-relaxed">{preset.description}</p>
                 </div>
 
-                <button
-                  onClick={() => handleLoad(preset)}
-                  className={`w-full py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition ${
-                    isLocked
-                      ? 'bg-gradient-to-r from-amber-500/20 to-yellow-500/20 text-amber-300 border border-amber-500/40 hover:bg-amber-500/30 shadow-md'
-                      : 'glass-button group-hover:bg-cyan-500 group-hover:text-slate-950 group-hover:font-extrabold text-slate-200'
-                  }`}
-                >
-                  {isLocked ? (
-                    <>
+                {isLocked ? (
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => handleWatchAdUnlock(preset)}
+                      disabled={unlockingId !== null}
+                      className="flex-1 py-2 px-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 disabled:opacity-60 text-slate-950 font-black text-xs flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition"
+                    >
+                      {unlockingId === preset.id ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <Film className="w-3.5 h-3.5" />
+                      )}
+                      <span>{unlockingId === preset.id ? 'Loading...' : 'Watch Ad'}</span>
+                    </button>
+                    <button
+                      onClick={() => handleLoad(preset)}
+                      className="py-2 px-2.5 rounded-xl bg-gradient-to-r from-amber-500/20 to-yellow-500/20 text-amber-300 border border-amber-500/40 hover:bg-amber-500/30 font-black text-xs flex items-center justify-center gap-1 active:scale-95 transition"
+                      title="Unlock all presets permanently with Pro"
+                    >
                       <Crown className="w-3.5 h-3.5 text-amber-400" />
-                      <span>Unlock with Pro</span>
-                    </>
-                  ) : (
-                    <>
-                      <span>Load Circuit</span>
-                      <ArrowRight className="w-3.5 h-3.5" />
-                    </>
-                  )}
-                </button>
+                      <span>PRO</span>
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => handleLoad(preset)}
+                    className="w-full py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition glass-button group-hover:bg-cyan-500 group-hover:text-slate-950 group-hover:font-extrabold text-slate-200"
+                  >
+                    <span>Load Circuit</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                )}
               </div>
             );
           })}
         </div>
+
+        {rewardError && (
+          <div className="px-3 py-1.5 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-200 text-xs font-medium text-center">
+            {rewardError}
+          </div>
+        )}
       </div>
     </div>
   );

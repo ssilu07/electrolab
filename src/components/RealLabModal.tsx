@@ -18,6 +18,8 @@ import {
   Tag,
   Crown,
   Lock,
+  Film,
+  Loader2,
 } from 'lucide-react';
 
 interface RealLabModalProps {
@@ -36,6 +38,8 @@ export const RealLabModal: React.FC<RealLabModalProps> = ({
   const { lang, t } = useI18n();
   const [activeCategory, setActiveCategory] = useState<RealExperimentCategory>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [unlockingId, setUnlockingId] = useState<string | null>(null);
+  const [rewardError, setRewardError] = useState<string | null>(null);
 
   const categoryTabs: { id: RealExperimentCategory; label: string; icon: React.FC<{ className?: string }> }[] = [
     { id: 'all', label: t.catAll, icon: Layers },
@@ -69,6 +73,33 @@ export const RealLabModal: React.FC<RealLabModalProps> = ({
     onSelectExperiment(exp, mode);
     adService.triggerNaturalBreakInterstitial('load_real_experiment').catch(() => {});
     onClose();
+  };
+
+  const handleWatchAdUnlock = async (exp: RealExperiment) => {
+    if (unlockingId) return;
+    soundFX.playClick();
+    setRewardError(null);
+    setUnlockingId(exp.id);
+    try {
+      const earned = await adService.showRewardVideo();
+      if (earned) {
+        soundFX.playConnect();
+        NativeBridge.haptic('medium');
+        onSelectExperiment(exp, 'workbench');
+        onClose();
+      } else {
+        const reason = adService.getLastRewardFailureReason();
+        if (reason === 'offline') {
+          setRewardError('Connect to the internet to watch a short video.');
+        } else if (reason === 'dismissed') {
+          setRewardError('Watch the full video to unlock this experiment.');
+        } else {
+          setRewardError('No video ad ready right now. Try again in a moment.');
+        }
+      }
+    } finally {
+      setUnlockingId(null);
+    }
   };
 
   return (
@@ -231,13 +262,28 @@ export const RealLabModal: React.FC<RealLabModalProps> = ({
                   {/* Action Buttons */}
                   <div className="flex items-center gap-2 pt-2 border-t border-white/10">
                     {isLocked ? (
-                      <button
-                        onClick={() => handleLaunch(exp, 'workbench')}
-                        className="flex-1 py-2 px-3 rounded-xl bg-gradient-to-r from-amber-500 via-yellow-500 to-amber-400 hover:from-amber-400 hover:to-yellow-300 text-slate-950 font-black text-xs flex items-center justify-center gap-1.5 shadow-lg shadow-amber-500/25 active:scale-95 transition"
-                      >
-                        <Crown className="w-3.5 h-3.5 fill-slate-950" />
-                        <span>Unlock with PRO</span>
-                      </button>
+                      <>
+                        <button
+                          onClick={() => handleWatchAdUnlock(exp)}
+                          disabled={unlockingId !== null}
+                          className="flex-1 py-2 px-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 disabled:opacity-60 text-slate-950 font-black text-xs flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-500/20 active:scale-95 transition"
+                        >
+                          {unlockingId === exp.id ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            <Film className="w-3.5 h-3.5" />
+                          )}
+                          <span>{unlockingId === exp.id ? 'Loading...' : 'Watch Ad'}</span>
+                        </button>
+                        <button
+                          onClick={() => handleLaunch(exp, 'workbench')}
+                          className="py-2 px-2.5 rounded-xl bg-gradient-to-r from-amber-500/20 to-yellow-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 font-black text-xs flex items-center justify-center gap-1 active:scale-95 transition"
+                          title="Unlock all experiments permanently with Pro"
+                        >
+                          <Crown className="w-3.5 h-3.5 text-amber-400" />
+                          <span>PRO</span>
+                        </button>
+                      </>
                     ) : (
                       <>
                         <button
@@ -266,6 +312,11 @@ export const RealLabModal: React.FC<RealLabModalProps> = ({
         </div>
 
         {/* Footer */}
+        {rewardError && (
+          <div className="px-3 py-1.5 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-200 text-xs font-medium text-center shrink-0">
+            {rewardError}
+          </div>
+        )}
         <div className="pt-2 border-t border-white/10 flex items-center justify-between text-[11px] text-slate-400 font-mono shrink-0">
           <span>{filteredExperiments.length} {t.experimentsReady}</span>
           <span className="text-amber-400">{t.viralTagline}</span>

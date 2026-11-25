@@ -295,13 +295,6 @@ export function App() {
     adService.setOverlayOpen('app_modal', hasOverlayModal).catch(() => {});
   }, [hasOverlayModal]);
 
-  // 1a-ii. Just-in-time interstitial warmup when user opens high-intent modals (Presets / Real Lab / Share)
-  useEffect(() => {
-    if (!isPro && (showPresetsModal || showRealLabModal || showShareModal)) {
-      adService.warmInterstitial('modal_open').catch(() => {});
-    }
-  }, [isPro, showPresetsModal, showRealLabModal, showShareModal]);
-
   // 1b. Google Play Store In-App Updates & Live Direct Connection
   useEffect(() => {
     playStoreService.checkForUpdate().then((updateInfo) => {

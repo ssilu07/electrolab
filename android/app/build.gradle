@@ -1,7 +1,7 @@
 apply plugin: 'com.android.application'
 
-def computedVersionCode = project.hasProperty('versionCode') ? project.property('versionCode').toInteger() : (System.getenv('VERSION_CODE') ? System.getenv('VERSION_CODE').toInteger() : 10)
-def computedVersionName = project.hasProperty('versionName') ? project.property('versionName').toString() : (System.getenv('VERSION_NAME') ?: "1.0.10")
+def computedVersionCode = project.hasProperty('versionCode') ? project.property('versionCode').toInteger() : (System.getenv('VERSION_CODE') ? System.getenv('VERSION_CODE').toInteger() : 11)
+def computedVersionName = project.hasProperty('versionName') ? project.property('versionName').toString() : (System.getenv('VERSION_NAME') ?: "1.0.11")
 
 android {
     namespace = "com.royals.electolab"
