@@ -26,6 +26,7 @@ import { BottomNav3D } from './components/BottomNav3D';
 import { RealLabModal } from './components/RealLabModal';
 import { RealEnvironmentWidget } from './components/RealEnvironmentWidget';
 import { ComponentDrawer } from './components/ComponentDrawer';
+import { DockedLabHUD } from './components/DockedLabHUD';
 import { InspectorModal } from './components/InspectorModal';
 import { Multimeter } from './components/instruments/Multimeter';
 import { Oscilloscope } from './components/instruments/Oscilloscope';
@@ -36,6 +37,11 @@ import { PresetsModal } from './components/PresetsModal';
 import { PrivacyPolicyModal } from './components/PrivacyPolicyModal';
 import { ProUpgradeModal } from './components/ProUpgradeModal';
 import { RatingModal } from './components/RatingModal';
+import {
+  InteractiveTutorial,
+  TUTORIAL_CIRCUIT,
+  TUTORIAL_STORAGE_KEY,
+} from './components/InteractiveTutorial';
 import { billingService } from './services/billingService';
 import { adService } from './services/adService';
 import { playStoreService } from './services/playStoreService';
@@ -62,6 +68,33 @@ import {
 } from 'lucide-react';
 
 const WIRE_COLORS = ['#3b82f6', '#ef4444', '#22c55e', '#f59e0b', '#a855f7', '#06b6d4', '#e2e8f0'];
+
+function getResponsiveCamera(isTutorial = false): { pan: { x: number; y: number }; zoom: number } {
+  const w = typeof window !== 'undefined' ? window.innerWidth : 1280;
+  const h = typeof window !== 'undefined' ? window.innerHeight : 800;
+  const isMobile = w < 640;
+  if (isTutorial) {
+    return {
+      zoom: isMobile ? 0.92 : 1.2,
+      pan: { x: Math.round(w / 2), y: Math.round(h / 2 - (isMobile ? 20 : 10)) },
+    };
+  }
+  return {
+    zoom: isMobile ? 0.62 : 1.02,
+    pan: { x: Math.round(w / 2 - (isMobile ? 6 : 16)), y: Math.round(h / 2 - (isMobile ? 148 : 110)) },
+  };
+}
+
+function shouldRunInitialTutorial(): boolean {
+  try {
+    if (typeof window !== 'undefined' && window.location.hash.includes('#circuit=')) {
+      return false;
+    }
+    return localStorage.getItem(TUTORIAL_STORAGE_KEY) !== 'true';
+  } catch {
+    return true;
+  }
+}
 
 export function App() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -96,8 +129,9 @@ export function App() {
 
   // Selection & Wiring Interaction
   const [selectedComponentId, setSelectedComponentId] = useState<string | null>(null);
-  const [hoveredPinId, setHoveredPinId] = useState<string | null>(null);
   const [wiringFromPinId, setWiringFromPinId] = useState<string | null>(null);
+  const hoveredPinIdRef = useRef<string | null>(null);
+  const mouseWorldPosRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
 
   // Modals & Toasts
   const [showShareModal, setShowShareModal] = useState<boolean>(false);
@@ -107,14 +141,16 @@ export function App() {
   const [showPrivacyModal, setShowPrivacyModal] = useState<boolean>(false);
   const [showProModal, setShowProModal] = useState<boolean>(false);
   const [showRatingModal, setShowRatingModal] = useState<boolean>(false);
+  const [tutorialActive, setTutorialActive] = useState<boolean>(() => shouldRunInitialTutorial());
+  const [componentDrawerOpen, setComponentDrawerOpen] = useState<boolean>(true);
   const [isPro, setIsPro] = useState<boolean>(billingService.isPro);
   const [bannerSafeOffset, setBannerSafeOffset] = useState<number>(() => adService.getBannerMetrics().safeOffset);
   const [toasts, setToasts] = useState<ToastNotification[]>([]);
 
-  // Camera Pan & Zoom
-  const [pan, setPan] = useState<{ x: number; y: number }>({ x: 300, y: 260 });
-  const [zoom, setZoom] = useState<number>(1.15);
-  const [mouseWorldPos, setMouseWorldPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  // Camera Pan & Zoom (responsive for mobile & desktop)
+  const initialCam = getResponsiveCamera(tutorialActive);
+  const [pan, setPan] = useState<{ x: number; y: number }>(() => initialCam.pan);
+  const [zoom, setZoom] = useState<number>(() => initialCam.zoom);
 
   // Dragging State: Component, Board Pan, or Lab Probes
   const isPanningRef = useRef<boolean>(false);
@@ -140,12 +176,12 @@ export function App() {
 
   const [oscilloscope, setOscilloscope] = useState<OscilloscopeState>({
     enabled: false,
-    x: window.innerWidth - 420,
+    x: Math.max(10, window.innerWidth - 404),
     y: 80,
     timeDivMs: 10,
     voltsDiv: 2.0,
-    probe: { x: window.innerWidth - 280, y: 280, attachedPinId: null },
-    groundProbe: { x: window.innerWidth - 240, y: 280, attachedPinId: null },
+    probe: { x: Math.max(40, window.innerWidth - 280), y: 280, attachedPinId: null },
+    groundProbe: { x: Math.max(80, window.innerWidth - 240), y: 280, attachedPinId: null },
     running: true,
     samples: [],
     displayMode: 'waveform',
@@ -173,6 +209,8 @@ export function App() {
   });
 
   const gridSize = 24;
+  const simResultRef = useRef<SimulationResult>(simResult);
+  const lastUiSimSyncRef = useRef<number>(0);
   const prevBlownRef = useRef<Set<string>>(new Set());
   const prevShortCircuitRef = useRef<boolean>(false);
 
@@ -413,10 +451,69 @@ export function App() {
       }
     } catch {}
 
+    if (shouldRunInitialTutorial()) {
+      setComponents(TUTORIAL_CIRCUIT.components);
+      setWires(TUTORIAL_CIRCUIT.wires);
+      const cam = getResponsiveCamera(true);
+      setPan(cam.pan);
+      setZoom(cam.zoom);
+      return;
+    }
+
     const defaultPreset = PRESET_CIRCUITS[0];
     setComponents(defaultPreset.components);
     setWires(defaultPreset.wires);
   }, [addToast]);
+
+  const handleStartTutorial = useCallback(() => {
+    setActiveScreen('circuit');
+    setViewMode('workbench');
+    setGameMode('sandbox');
+    setSelectedComponentId(null);
+    setWiringFromPinId(null);
+    setActiveRealExperiment(null);
+    setShowPresetsModal(false);
+    setShowRealLabModal(false);
+    setShowShareModal(false);
+    setComponents(TUTORIAL_CIRCUIT.components);
+    setWires(TUTORIAL_CIRCUIT.wires);
+    solverRef.current.reset();
+    particleSystemRef.current.clear();
+    prevBlownRef.current.clear();
+    const cam = getResponsiveCamera(true);
+    setPan(cam.pan);
+    setZoom(cam.zoom);
+    setIsSimulating(true);
+    setTutorialActive(true);
+  }, []);
+
+  const handleCompleteTutorial = useCallback(() => {
+    try {
+      localStorage.setItem(TUTORIAL_STORAGE_KEY, 'true');
+    } catch {
+      // ignore restricted storage
+    }
+    setTutorialActive(false);
+  }, []);
+
+  const handleSkipTutorial = useCallback(() => {
+    try {
+      localStorage.setItem(TUTORIAL_STORAGE_KEY, 'true');
+    } catch {
+      // ignore restricted storage
+    }
+    setTutorialActive(false);
+    const defaultPreset = PRESET_CIRCUITS[0];
+    setComponents(defaultPreset.components);
+    setWires(defaultPreset.wires);
+    setSelectedComponentId(null);
+    setWiringFromPinId(null);
+    solverRef.current.reset();
+    particleSystemRef.current.clear();
+    const cam = getResponsiveCamera(false);
+    setPan(cam.pan);
+    setZoom(cam.zoom);
+  }, []);
 
   // Update Game Mode Level
   useEffect(() => {
@@ -476,16 +573,23 @@ export function App() {
 
     setActiveScreen(screen);
 
+    if (screen === '3d' || screen === 'instruments') {
+      setSelectedComponentId(null);
+      setWiringFromPinId(null);
+    }
+
     // High show-rate optimization: warm at switch #2, display instantaneously at switch #3
-    screenSwitchCountRef.current += 1;
-    if (screenSwitchCountRef.current === 2 && adService.canShowInterstitial()) {
-      adService.warmInterstitial('screen_switch_prefetch').catch(() => {});
-    } else if (screenSwitchCountRef.current >= 3 && adService.canShowInterstitial()) {
-      adService.showInterstitial().then((shown) => {
-        if (shown) {
-          screenSwitchCountRef.current = 0;
-        }
-      }).catch(() => {});
+    if (!tutorialActive) {
+      screenSwitchCountRef.current += 1;
+      if (screenSwitchCountRef.current === 2 && adService.canShowInterstitial()) {
+        adService.warmInterstitial('screen_switch_prefetch').catch(() => {});
+      } else if (screenSwitchCountRef.current >= 3 && adService.canShowInterstitial()) {
+        adService.showInterstitial().then((shown) => {
+          if (shown) {
+            screenSwitchCountRef.current = 0;
+          }
+        }).catch(() => {});
+      }
     }
 
     if (screen === 'circuit') {
@@ -500,7 +604,7 @@ export function App() {
     } else if (screen === 'presets') {
       setShowPresetsModal(true);
     }
-  }, []);
+  }, [tutorialActive]);
 
   const handleToggleMute = useCallback(() => {
     setIsMuted((prev) => {
@@ -566,8 +670,9 @@ export function App() {
       const dt = Math.min(0.033, (currentTime - lastTime) / 1000);
       lastTime = currentTime;
 
-      let sim = simResult;
+      let sim = simResultRef.current;
       if (isSimulating) {
+        const prevSim = simResultRef.current;
         sim = solverRef.current.step(components, wires, {
           dt: 0.001,
           subSteps: 10,
@@ -575,7 +680,17 @@ export function App() {
           oscilloscopeProbePinId: oscilloscope.enabled ? oscilloscope.probe.attachedPinId : null,
           oscilloscopeGroundPinId: oscilloscope.enabled ? oscilloscope.groundProbe.attachedPinId : null,
         });
-        setSimResult(sim);
+        simResultRef.current = sim;
+
+        // Throttle React UI state sync to ~12.5 Hz (every 80ms) so Canvas runs at 60 FPS without 60x/s full React re-renders
+        const urgentChange =
+          sim.blownComponents.size !== prevSim.blownComponents.size ||
+          sim.hasShortCircuit !== prevSim.hasShortCircuit ||
+          sim.activeNodeCount !== prevSim.activeNodeCount;
+        if (urgentChange || currentTime - lastUiSimSyncRef.current >= 80) {
+          lastUiSimSyncRef.current = currentTime;
+          setSimResult(sim);
+        }
 
         // Check newly exploded components
         const newlyBlown: string[] = [];
@@ -632,6 +747,33 @@ export function App() {
           soundFX.stopBurn();
         }
 
+        // Continuous lingering smoke on blown/charred components + pre-explosion overheat warning smoke
+        for (const comp of components) {
+          if (sim.blownComponents.has(comp.id)) {
+            particleSystemRef.current.triggerLingeringSmoke(comp.x * gridSize, comp.y * gridSize);
+          } else if (willItBlow) {
+            if (comp.type === 'led') {
+              const ledCurrent = Math.abs(sim.branchCurrents.get(comp.id) ?? 0);
+              if (ledCurrent > 0.021) {
+                particleSystemRef.current.triggerOverheatSmoke(
+                  comp.x * gridSize,
+                  comp.y * gridSize,
+                  Math.min(1, ledCurrent / 0.03)
+                );
+              }
+            } else if (comp.type === 'resistor') {
+              const resPower = Math.abs(sim.componentPower.get(comp.id) ?? 0);
+              if (resPower > 0.18) {
+                particleSystemRef.current.triggerOverheatSmoke(
+                  comp.x * gridSize,
+                  comp.y * gridSize,
+                  Math.min(1, resPower / 0.25)
+                );
+              }
+            }
+          }
+        }
+
         soundFX.updateCircuitBuzzer(sim.buzzerActive, sim.buzzerFreq, sim.buzzerVolume);
       }
 
@@ -670,9 +812,9 @@ export function App() {
         pan,
         zoom,
         selectedComponentId,
-        hoveredPinId,
+        hoveredPinId: hoveredPinIdRef.current,
         wiringFromPinId,
-        mouseWorldPos,
+        mouseWorldPos: mouseWorldPosRef.current,
         multimeter,
         oscilloscope,
         particleSystem: particleSystemRef.current,
@@ -698,14 +840,12 @@ export function App() {
     pan,
     zoom,
     selectedComponentId,
-    hoveredPinId,
     wiringFromPinId,
-    mouseWorldPos,
     multimeter,
     oscilloscope,
     gridSize,
-    simResult,
     addToast,
+    isPro,
   ]);
 
   // --------------------------------------------------------------------------
@@ -765,7 +905,7 @@ export function App() {
     }
 
     // 3. Check if clicking a pin for wiring or probe attachment
-    const pin = findPinAt(world.x, world.y);
+    const pin = findPinAt(world.x, world.y, tutorialActive ? 28 : 18);
 
     if (pin) {
       soundFX.playClick(1.5);
@@ -819,6 +959,7 @@ export function App() {
               current: 0,
             };
             setWires((prev) => [...prev, newWire]);
+            particleSystemRef.current.triggerConnectSpark(pin.x * gridSize, pin.y * gridSize, newWireColor);
             soundFX.playConnect();
             NativeBridge.haptic('success');
           }
@@ -861,10 +1002,10 @@ export function App() {
 
   const pointerMoveCore = (clientX: number, clientY: number) => {
     const world = screenToWorld(clientX, clientY);
-    setMouseWorldPos(world);
+    mouseWorldPosRef.current = world;
 
-    const pin = findPinAt(world.x, world.y);
-    setHoveredPinId(pin ? pin.id : null);
+    const pin = findPinAt(world.x, world.y, tutorialActive ? 28 : 18);
+    hoveredPinIdRef.current = pin ? pin.id : null;
 
     // Dragging DMM / DSO Probes directly
     if (draggingProbeRef.current === 'red') {
@@ -1373,6 +1514,7 @@ export function App() {
         isPro={isPro}
         onOpenProModal={() => setShowProModal(true)}
         onRateApp={() => setShowRatingModal(true)}
+        onReplayTutorial={handleStartTutorial}
         onCheckUpdates={() => {
           addToast('info', 'Connecting to Play Store...', 'Checking for the latest updates.');
           playStoreService.checkForUpdate().then((info) => {
@@ -1442,7 +1584,11 @@ export function App() {
 
       {/* Right-Side Vertical Quick Toolbar (Screenshot 1) */}
       {(activeScreen === 'circuit' || activeScreen === 'challenges') && viewMode !== '3d' && (
-        <div className="fixed top-20 right-3 sm:right-4 z-20 flex flex-col gap-1.5 bg-slate-950/85 backdrop-blur-2xl border border-cyan-500/30 p-1.5 rounded-2xl shadow-2xl">
+        <div
+          className={`fixed ${
+            activeScreen === 'challenges' ? 'top-[132px]' : 'top-20'
+          } right-3 sm:right-4 z-20 flex flex-col gap-1.5 bg-slate-950/85 backdrop-blur-2xl border border-cyan-500/30 p-1.5 rounded-2xl shadow-2xl`}
+        >
           <button
             onClick={() => {
               soundFX.playClick();
@@ -1653,6 +1799,7 @@ export function App() {
       )}
 
       {/* Floating HUD: Live Circuit Telemetry (Bottom Left) */}
+      {activeScreen !== 'instruments' && (
       <div
         style={{ bottom: 'calc(var(--ad-banner-height, 0px) + 84px)' }}
         className="fixed left-4 z-20 hidden lg:flex items-center gap-4 glass-panel rounded-2xl px-3.5 py-2 text-xs font-mono shadow-2xl transition-[bottom] duration-200"
@@ -1682,9 +1829,10 @@ export function App() {
           </span>
         </div>
       </div>
+      )}
 
       {/* Floating Zoom & Pan Controls (Below right toolbar on Mobile / Bottom Right on Desktop — zero banner or drawer overlap) */}
-      {viewMode !== '3d' && (
+      {viewMode !== '3d' && activeScreen !== 'instruments' && (
         <div className="fixed top-[288px] right-3 flex-col md:top-auto md:bottom-[calc(var(--ad-banner-height,0px)+18px)] md:right-4 md:flex-row z-20 flex items-center gap-1.5 glass-panel p-1 rounded-2xl shadow-xl transition-[bottom] duration-200">
           <button
             onClick={() => setZoom((prev) => Math.min(2.5, prev * 1.15))}
@@ -1702,8 +1850,9 @@ export function App() {
           </button>
           <button
             onClick={() => {
-              setZoom(1.15);
-              setPan({ x: window.innerWidth / 2 - 100, y: window.innerHeight / 2 - 80 });
+              const cam = getResponsiveCamera(tutorialActive);
+              setZoom(cam.zoom);
+              setPan(cam.pan);
             }}
             className="p-1.5 glass-button rounded-xl text-slate-300 transition"
             title="Reset View"
@@ -1713,6 +1862,24 @@ export function App() {
         </div>
       )}
 
+      {/* Docked Live Split Meter & Component Card (Image 1 Clean Lab Dashboard) */}
+      {activeScreen === 'circuit' &&
+        viewMode !== '3d' &&
+        !tutorialActive &&
+        !multimeter.enabled &&
+        !oscilloscope.enabled && (
+          <DockedLabHUD
+            components={components}
+            selectedComponentId={selectedComponentId}
+            simulation={simResult}
+            isSimulating={isSimulating}
+            onToggleSimulate={handleToggleSimulate}
+            onSelectComponent={(id) => setSelectedComponentId(id)}
+            onUpdateComponent={handleUpdateComponent}
+            drawerOpen={componentDrawerOpen}
+          />
+        )}
+
       {/* Interactive Bottom Component Drawer */}
       {(activeScreen === 'circuit' || (activeScreen === '3d' && gameMode === 'sandbox')) && (
         <ComponentDrawer
@@ -1720,6 +1887,7 @@ export function App() {
           isPro={isPro}
           onOpenProModal={() => setShowProModal(true)}
           activeScreen={activeScreen}
+          onOpenChange={setComponentDrawerOpen}
         />
       )}
 
@@ -1867,6 +2035,22 @@ export function App() {
         isOpen={showRatingModal}
         onClose={() => setShowRatingModal(false)}
         onToast={addToast}
+      />
+
+      {/* Game-Style Hands-On Interactive Tutorial */}
+      <InteractiveTutorial
+        active={tutorialActive}
+        components={components}
+        wires={wires}
+        pan={pan}
+        zoom={zoom}
+        gridSize={gridSize}
+        wiringFromPinId={wiringFromPinId}
+        selectedComponentId={selectedComponentId}
+        activeScreen={activeScreen}
+        viewMode={viewMode}
+        onComplete={handleCompleteTutorial}
+        onSkip={handleSkipTutorial}
       />
 
       {/* Cyber Toast Notifications Container */}

@@ -13,12 +13,14 @@ import {
   RotateCcw,
   Star,
   Sparkles,
-  ArrowRight,
   Check,
   Crown,
   Film,
   Loader2,
   Lock,
+  ChevronDown,
+  ChevronUp,
+  ChevronRight,
 } from 'lucide-react';
 
 interface ChallengePanelProps {
@@ -55,6 +57,9 @@ export const ChallengePanel: React.FC<ChallengePanelProps> = ({
   const [hasTriggeredVictory, setHasTriggeredVictory] = useState(false);
   const [showVictoryModal, setShowVictoryModal] = useState(false);
   const [hintAdMessage, setHintAdMessage] = useState<string | null>(null);
+  const [objectivesOpen, setObjectivesOpen] = useState<boolean>(() =>
+    typeof window !== 'undefined' ? window.innerWidth >= 768 : true
+  );
 
   // Pause banner whenever a challenge modal is open to prevent accidental clicks
   useEffect(() => {
@@ -152,78 +157,125 @@ export const ChallengePanel: React.FC<ChallengePanelProps> = ({
     setHintIndex(0);
   }, [level.id]);
 
+  const satisfiedCount = validation.details.filter((d) => d.satisfied).length;
+  const totalCount = Math.max(1, validation.details.length);
+  const progressPct = validation.completed ? 100 : Math.round((satisfiedCount / totalCount) * 100);
+  const earnedStars = validation.completed ? 3 : satisfiedCount >= totalCount - 1 && satisfiedCount > 0 ? 2 : satisfiedCount > 0 ? 1 : 0;
+
   return (
     <>
-      {/* Top Level Status Bar (Screenshot 3) */}
-      <div className="fixed top-14 left-0 right-0 z-20 px-3 py-2 bg-slate-950/80 backdrop-blur-xl border-b border-white/10 flex items-center justify-between text-xs font-sans">
-        <div className="flex items-center gap-2">
-          <div className="p-1 rounded-lg bg-amber-500/20 text-amber-400 border border-amber-500/30">
-            <Trophy className="w-4 h-4" />
-          </div>
-          <div>
-            <h2 className="font-extrabold text-white text-xs sm:text-sm flex items-center gap-1.5">
-              <span>{level.title}</span>
-              <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                {level.difficulty}
-              </span>
-            </h2>
-            <p className="text-[11px] text-slate-300 line-clamp-1">{level.targetGoal}</p>
-          </div>
-        </div>
-
-        {/* 3 Golden Stars Bar & Energy Coins (Screenshot 3) */}
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-slate-900 border border-white/10">
-            <Star className={`w-3.5 h-3.5 ${validation.completed ? 'text-amber-400 fill-amber-400 animate-bounce' : 'text-slate-600'}`} />
-            <Star className={`w-3.5 h-3.5 ${validation.completed ? 'text-amber-400 fill-amber-400 animate-bounce delay-100' : 'text-slate-600'}`} />
-            <Star className={`w-3.5 h-3.5 ${validation.completed ? 'text-amber-400 fill-amber-400 animate-bounce delay-200' : 'text-slate-600'}`} />
-          </div>
-
-          <div className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-amber-950/50 border border-amber-500/40 text-amber-300 font-mono font-bold text-xs">
-            <span>⚡ 120</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Floating Objective Checklist card */}
-      <div className="fixed top-28 left-3 sm:left-4 z-20 max-w-xs glass-modal rounded-2xl p-3 shadow-xl space-y-2 text-xs">
-        <div className="flex items-center justify-between text-slate-400 border-b border-white/10 pb-1">
-          <span className="font-bold text-white text-[11px] uppercase tracking-wider">Objectives</span>
-          <span className="text-[10px] font-mono text-cyan-400">
-            {validation.details.filter((d) => d.satisfied).length}/{validation.details.length}
-          </span>
-        </div>
-
-        <div className="space-y-1">
-          {validation.details.map((item, idx) => (
-            <div key={idx} className="flex items-start gap-1.5 text-[11px]">
-              {item.satisfied ? (
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
-              ) : (
-                <Circle className="w-3.5 h-3.5 text-slate-500 shrink-0 mt-0.5" />
-              )}
-              <span className={item.satisfied ? 'text-emerald-300 line-through' : 'text-slate-300'}>
-                {item.text}
-              </span>
+      {/* Top Gamified Level Header + 3-Star Progress Bar (Image 3 Style) */}
+      <div className="fixed top-14 left-0 right-0 z-20 px-3 py-2 bg-[#0b111e]/94 backdrop-blur-xl border-b border-white/10 font-sans space-y-1.5 shadow-[0_8px_25px_rgba(0,0,0,0.55)]">
+        <div className="max-w-2xl mx-auto flex items-center justify-between gap-2">
+          {/* Level Title & Mission */}
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="w-7 h-7 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/35 flex items-center justify-center shrink-0">
+              <Trophy className="w-3.5 h-3.5" />
             </div>
-          ))}
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5">
+                <h2 className="font-black text-white text-xs sm:text-sm leading-tight truncate">
+                  Level {currentLevelIndex + 1} · {level.title}
+                </h2>
+                <span className="hidden sm:inline text-[9px] font-mono px-1.5 py-0.5 rounded-md bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 shrink-0">
+                  {level.difficulty}
+                </span>
+              </div>
+              <p className="text-[10px] sm:text-[11px] text-slate-300 truncate">{level.targetGoal}</p>
+            </div>
+          </div>
+
+          {/* Energy Pill + Objectives Toggle */}
+          <div className="flex items-center gap-1.5 shrink-0">
+            <button
+              onClick={() => {
+                soundFX.playClick();
+                setObjectivesOpen((o) => !o);
+              }}
+              className="flex items-center gap-1 px-2 py-1 rounded-xl bg-[#131c31] border border-white/10 hover:border-sky-400/50 text-sky-300 font-mono font-bold text-[10px] transition active:scale-95"
+              title="Toggle Level Objectives"
+            >
+              <span>{satisfiedCount}/{totalCount}</span>
+              {objectivesOpen ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+            </button>
+
+            <div className="flex items-center gap-1 px-2 py-1 rounded-xl bg-amber-500/15 border border-amber-400/40 text-amber-300 font-mono font-black text-[11px]">
+              <span>⚡ {120 + currentLevelIndex * 50}</span>
+            </div>
+          </div>
         </div>
 
-        <div
-          className={`p-1.5 rounded-xl text-[10px] font-mono leading-tight border ${
-            validation.completed
-              ? 'bg-emerald-950/60 border-emerald-500/40 text-emerald-200'
-              : 'bg-slate-950/60 border-slate-800 text-slate-400'
-          }`}
-        >
-          {validation.progressMessage}
+        {/* Glowing Emerald 3-Star Progress Bar (Image 3 Signature) */}
+        <div className="max-w-2xl mx-auto relative flex items-center h-4">
+          <div className="w-full h-2 rounded-full bg-slate-900 border border-white/10 overflow-hidden shadow-inner">
+            <div
+              style={{ width: `${Math.max(8, progressPct)}%` }}
+              className="h-full rounded-full bg-gradient-to-r from-emerald-500 via-green-400 to-lime-300 shadow-[0_0_12px_rgba(34,197,94,0.8)] transition-all duration-300"
+            />
+          </div>
+          {/* 3 Golden Stars centered over bar */}
+          <div className="absolute inset-0 flex items-center justify-center gap-4 pointer-events-none">
+            {[1, 2, 3].map((starIdx) => {
+              const lit = earnedStars >= starIdx;
+              return (
+                <Star
+                  key={starIdx}
+                  className={`w-4 h-4 transition-all duration-300 ${
+                    lit
+                      ? 'text-amber-300 fill-amber-400 scale-110 drop-shadow-[0_0_8px_rgba(251,191,36,0.95)]'
+                      : 'text-slate-600 fill-slate-900'
+                  }`}
+                />
+              );
+            })}
+          </div>
         </div>
       </div>
 
-      {/* Bottom Level Controls Bar — lifted cleanly above BottomNav3D and Ad Banner */}
+      {/* Collapsible Compact Objectives Card (Never overlaps right-side tool rail on 390px!) */}
+      {objectivesOpen && (
+        <div className="fixed top-[128px] left-3 z-20 w-[250px] sm:w-[272px] bg-[#0b111e]/92 backdrop-blur-xl border border-white/12 rounded-2xl p-2.5 shadow-2xl space-y-1.5 text-xs">
+          <div className="flex items-center justify-between text-slate-400 border-b border-white/10 pb-1">
+            <span className="font-extrabold text-white text-[10px] uppercase tracking-wider">Objectives</span>
+            <button
+              onClick={() => setObjectivesOpen(false)}
+              className="text-[10px] font-mono text-sky-400 hover:text-white"
+            >
+              Hide
+            </button>
+          </div>
+
+          <div className="space-y-1">
+            {validation.details.map((item, idx) => (
+              <div key={idx} className="flex items-start gap-1.5 text-[11px]">
+                {item.satisfied ? (
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
+                ) : (
+                  <Circle className="w-3.5 h-3.5 text-slate-500 shrink-0 mt-0.5" />
+                )}
+                <span className={item.satisfied ? 'text-emerald-300 line-through' : 'text-slate-200'}>
+                  {item.text}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          <div
+            className={`p-1.5 rounded-xl text-[10px] font-mono leading-tight border ${
+              validation.completed
+                ? 'bg-emerald-950/60 border-emerald-500/40 text-emerald-200'
+                : 'bg-[#060a14] border-white/5 text-slate-400'
+            }`}
+          >
+            {validation.progressMessage}
+          </div>
+        </div>
+      )}
+
+      {/* Bottom Level Controls Bar — Image 3 Style (Reset | Hint [3] | Next Level >) */}
       <div
-        style={{ bottom: 'calc(var(--ad-banner-height, 0px) + 98px)' }}
-        className="fixed left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 bg-slate-950/90 backdrop-blur-2xl border border-white/15 px-3 py-2 rounded-2xl shadow-2xl transition-[bottom] duration-200"
+        style={{ bottom: 'calc(var(--ad-banner-height, 0px) + 94px)' }}
+        className="fixed left-1/2 -translate-x-1/2 z-20 w-[94%] max-w-md flex items-center gap-2 bg-[#0b111e]/94 backdrop-blur-2xl border border-white/12 p-2 rounded-2xl shadow-[0_12px_35px_rgba(0,0,0,0.8)] transition-[bottom] duration-200"
       >
         <button
           onClick={() => {
@@ -231,9 +283,9 @@ export const ChallengePanel: React.FC<ChallengePanelProps> = ({
             NativeBridge.haptic('light');
             onResetLevel();
           }}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 border border-white/10 hover:border-white/20 text-slate-300 hover:text-white text-xs font-bold transition active:scale-95"
+          className="flex-1 flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl bg-[#131c31] border border-white/10 hover:border-white/25 text-slate-200 hover:text-white text-xs font-bold transition active:scale-95 whitespace-nowrap"
         >
-          <RotateCcw className="w-3.5 h-3.5" />
+          <RotateCcw className="w-3.5 h-3.5 shrink-0" />
           <span>Reset</span>
         </button>
 
@@ -244,11 +296,11 @@ export const ChallengePanel: React.FC<ChallengePanelProps> = ({
             setHintAdMessage(null);
             setShowHints((prev) => !prev);
           }}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/20 text-amber-300 border border-amber-500/40 hover:bg-amber-500/30 text-xs font-bold transition active:scale-95"
+          className="flex-1 flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl bg-[#131c31] border border-amber-400/35 hover:bg-amber-500/15 text-amber-200 text-xs font-bold transition active:scale-95 whitespace-nowrap"
         >
-          <Lightbulb className="w-3.5 h-3.5 text-amber-400" />
+          <Lightbulb className="w-3.5 h-3.5 text-amber-400 shrink-0" />
           <span>Hint</span>
-          <span className="w-4 h-4 rounded-full bg-amber-400 text-slate-950 text-[10px] flex items-center justify-center font-bold">
+          <span className="w-4 h-4 rounded-full bg-emerald-400 text-slate-950 text-[10px] flex items-center justify-center font-black shrink-0">
             {level.hints.length}
           </span>
         </button>
@@ -269,23 +321,23 @@ export const ChallengePanel: React.FC<ChallengePanelProps> = ({
                 onNextLevel();
               }
             }}
-            className={`flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-xs font-bold transition active:scale-95 shadow-lg ${
+            className={`flex-[1.35] flex items-center justify-center gap-1 py-2 px-3 rounded-xl text-xs font-black transition active:scale-95 shadow-lg whitespace-nowrap ${
               currentLevelIndex >= 1 && !isPro
-                ? 'bg-gradient-to-r from-amber-500 via-yellow-500 to-amber-400 text-slate-950 font-black shadow-amber-500/30'
+                ? 'bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-400 text-slate-950 shadow-amber-500/30'
                 : validation.completed
-                ? 'bg-emerald-500 text-slate-950 font-black shadow-emerald-500/30 ring-2 ring-emerald-300 animate-pulse'
-                : 'bg-slate-800 text-slate-400 border border-slate-700'
+                ? 'bg-gradient-to-r from-emerald-500 to-green-400 text-slate-950 shadow-[0_0_20px_rgba(16,185,129,0.55)] ring-2 ring-emerald-300'
+                : 'bg-gradient-to-r from-emerald-600/80 to-green-600/80 hover:from-emerald-500 hover:to-green-500 text-white border border-emerald-400/40'
             }`}
           >
             {currentLevelIndex >= 1 && !isPro ? (
               <>
-                <Crown className="w-3.5 h-3.5 fill-slate-950" />
-                <span>Next (PRO Only)</span>
+                <Crown className="w-3.5 h-3.5 fill-slate-950 shrink-0" />
+                <span>Next (PRO)</span>
               </>
             ) : (
               <>
                 <span>Next Level</span>
-                <ArrowRight className="w-3.5 h-3.5" />
+                <ChevronRight className="w-4 h-4 shrink-0" />
               </>
             )}
           </button>

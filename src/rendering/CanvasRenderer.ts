@@ -172,37 +172,47 @@ export class CanvasRenderer {
       }
       ctx.stroke();
     } else {
-      ctx.fillStyle = '#080d18';
+      // Deep matte obsidian PCB / perfboard surface (Image 1 & 4 studio look)
+      ctx.fillStyle = '#060a14';
       ctx.fillRect(startX, startY, endX - startX, endY - startY);
 
-      // Breadboard snap points with 3D recessed socket holes
+      // Subtle ambient studio blue glow centered on the board
+      const centerGlow = ctx.createRadialGradient(0, 0, 20, 0, 0, Math.max(width, height) * 0.55);
+      centerGlow.addColorStop(0, 'rgba(14, 165, 233, 0.09)');
+      centerGlow.addColorStop(0.5, 'rgba(30, 58, 138, 0.04)');
+      centerGlow.addColorStop(1, 'rgba(6, 10, 20, 0)');
+      ctx.fillStyle = centerGlow;
+      ctx.fillRect(startX, startY, endX - startX, endY - startY);
+
+      // Crisp perfboard recessed socket holes with subtle metallic bevel
       for (let x = startX; x <= endX; x += gridSize) {
         for (let y = startY; y <= endY; y += gridSize) {
-          // Socket cavity
-          ctx.fillStyle = '#020617';
+          // Outer bevel ring
+          ctx.fillStyle = 'rgba(51, 65, 85, 0.45)';
           ctx.beginPath();
-          ctx.arc(x, y, 2.5, 0, Math.PI * 2);
+          ctx.arc(x, y, 3.0, 0, Math.PI * 2);
           ctx.fill();
 
-          // Internal phosphor-bronze contact leaf
-          ctx.fillStyle = '#475569';
-          ctx.fillRect(x - 0.7, y - 1.2, 1.4, 2.4);
-          ctx.fillStyle = '#1e293b';
-          ctx.fillRect(x - 0.35, y - 0.8, 0.7, 1.6);
+          // Deep socket cavity
+          ctx.fillStyle = '#02050c';
+          ctx.beginPath();
+          ctx.arc(x, y, 2.2, 0, Math.PI * 2);
+          ctx.fill();
         }
       }
 
-      ctx.strokeStyle = 'rgba(239, 68, 68, 0.15)';
-      ctx.lineWidth = 2 / zoom;
+      // Subtle PCB power rail guide lines
+      ctx.strokeStyle = 'rgba(239, 68, 68, 0.14)';
+      ctx.lineWidth = 1.5 / zoom;
       ctx.beginPath();
-      ctx.moveTo(startX, 0);
-      ctx.lineTo(endX, 0);
+      ctx.moveTo(startX, -gridSize * 6);
+      ctx.lineTo(endX, -gridSize * 6);
       ctx.stroke();
 
-      ctx.strokeStyle = 'rgba(59, 130, 246, 0.15)';
+      ctx.strokeStyle = 'rgba(56, 189, 248, 0.14)';
       ctx.beginPath();
-      ctx.moveTo(startX, gridSize * 20);
-      ctx.lineTo(endX, gridSize * 20);
+      ctx.moveTo(startX, gridSize * 6);
+      ctx.lineTo(endX, gridSize * 6);
       ctx.stroke();
     }
   }
@@ -255,76 +265,123 @@ export class CanvasRenderer {
         }
       } else {
         const dist = Math.hypot(p2x - p1x, p2y - p1y);
-        const droop = Math.min(35, dist * 0.18);
+        const droop = Math.min(28, dist * 0.14);
         const midX = (p1x + p2x) / 2;
         const midY = (p1y + p2y) / 2 + droop;
+        const isLiveCurrent = absCurrent > 0.0005;
+        const currentIntensity = Math.min(1, Math.max(0.25, Math.log10(absCurrent * 1000 + 1) / 2.2));
+
+        // Neon glow color: vivid electric cyan-blue for active signal/return traces, red for power/hot, emerald/amber for colored wires
+        const baseWireColor = wire.color || '#38bdf8';
+        const neonColor = isHot
+          ? '#ef4444'
+          : baseWireColor === '#64748b'
+          ? '#38bdf8'
+          : baseWireColor === '#ef4444'
+          ? '#fb7185'
+          : baseWireColor === '#f59e0b'
+          ? '#38bdf8'
+          : baseWireColor;
 
         // 1. Soft 3D drop shadow on breadboard
         ctx.beginPath();
-        ctx.moveTo(p1x, p1y + 6);
-        ctx.quadraticCurveTo(midX, midY + 9, p2x, p2y + 6);
-        ctx.strokeStyle = 'rgba(0, 0, 0, 0.5)';
+        ctx.moveTo(p1x, p1y + 5);
+        ctx.quadraticCurveTo(midX, midY + 8, p2x, p2y + 5);
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.55)';
         ctx.lineWidth = 6.0;
         ctx.lineCap = 'round';
         ctx.stroke();
 
-        // 2. High current thermal incandescence / normal silicone wire jacket
-        let wireStrokeColor = wire.color || '#3b82f6';
-        if (isHot) {
-          wireStrokeColor = '#ef4444';
-          ctx.shadowColor = '#ef4444';
-          ctx.shadowBlur = 18;
-        } else if (absCurrent > 0.8) {
-          ctx.shadowColor = wireStrokeColor;
-          ctx.shadowBlur = 10;
+        // 2. Electric Neon Outer Bloom when live current flows (Image 1 & 4 look!)
+        if (isLiveCurrent || isHot) {
+          ctx.save();
+          ctx.beginPath();
+          ctx.moveTo(p1x, p1y);
+          ctx.quadraticCurveTo(midX, midY, p2x, p2y);
+          ctx.strokeStyle = neonColor;
+          ctx.globalAlpha = isHot ? 0.55 : 0.24 + currentIntensity * 0.24;
+          ctx.lineWidth = isHot ? 14 : 11;
+          ctx.lineCap = 'round';
+          ctx.shadowColor = neonColor;
+          ctx.shadowBlur = isHot ? 24 : 18;
+          ctx.stroke();
+          ctx.restore();
         }
 
+        // 3. Main Luminous Wire Core
+        ctx.save();
         ctx.beginPath();
         ctx.moveTo(p1x, p1y);
         ctx.quadraticCurveTo(midX, midY, p2x, p2y);
-        ctx.strokeStyle = wireStrokeColor;
-        ctx.lineWidth = 4.8;
+        ctx.strokeStyle = isHot ? '#ef4444' : isLiveCurrent ? neonColor : baseWireColor;
+        ctx.lineWidth = isLiveCurrent ? 4.4 : 4.2;
+        ctx.lineCap = 'round';
+        if (isLiveCurrent || isHot) {
+          ctx.shadowColor = neonColor;
+          ctx.shadowBlur = 10;
+        }
+        ctx.stroke();
+        ctx.restore();
+
+        // 4. White-Hot Luminous Center Filament / Specular Spine
+        ctx.beginPath();
+        ctx.moveTo(p1x, p1y - 0.5);
+        ctx.quadraticCurveTo(midX, midY - 0.8, p2x, p2y - 0.5);
+        ctx.strokeStyle = isHot
+          ? 'rgba(254, 240, 138, 0.9)'
+          : isLiveCurrent
+          ? 'rgba(224, 242, 254, 0.82)'
+          : 'rgba(255, 255, 255, 0.35)';
+        ctx.lineWidth = isLiveCurrent ? 1.6 : 1.2;
         ctx.lineCap = 'round';
         ctx.stroke();
 
-        // 3. Longitudinal 3D Specular Highlight Stripe along wire spine
-        ctx.beginPath();
-        ctx.moveTo(p1x, p1y - 0.8);
-        ctx.quadraticCurveTo(midX, midY - 1.2, p2x, p2y - 0.8);
-        ctx.strokeStyle = isHot ? 'rgba(254, 240, 138, 0.7)' : 'rgba(255, 255, 255, 0.45)';
-        ctx.lineWidth = 1.4;
-        ctx.stroke();
+        // 5. Animated Glowing Energy Pulses along active wires
+        if (isLiveCurrent && !isHot) {
+          const speed = Math.min(2.2, 0.55 + currentIntensity * 1.1);
+          const dir = wire.current >= 0 ? 1 : -1;
+          const phase = ((simulation.simTime * speed * dir) % 1 + 1) % 1;
+          const pulseCount = Math.max(1, Math.min(3, Math.floor(dist / 70)));
+          for (let i = 0; i < pulseCount; i++) {
+            const t = (phase + i / pulseCount) % 1;
+            const inv = 1 - t;
+            const px = inv * inv * p1x + 2 * inv * t * midX + t * t * p2x;
+            const py = inv * inv * p1y + 2 * inv * t * midY + t * t * p2y;
 
-        // 4. DuPont Jumper Connector Boots at Pin Terminals
-        const drawDupontBoot = (x: number, y: number) => {
-          // Terminal base shadow
-          ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+            ctx.save();
+            ctx.fillStyle = '#ffffff';
+            ctx.shadowColor = neonColor;
+            ctx.shadowBlur = 10;
+            ctx.beginPath();
+            ctx.arc(px, py, 2.6, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+          }
+        }
+
+        // 6. Glowing Solder-Pad / Connector Terminals at Pins
+        const drawTerminalNode = (x: number, y: number) => {
+          ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
           ctx.beginPath();
-          ctx.arc(x, y + 2, 4.5, 0, Math.PI * 2);
+          ctx.arc(x, y + 1.5, 4.6, 0, Math.PI * 2);
           ctx.fill();
 
-          // Molded plastic strain-relief collar
-          ctx.fillStyle = '#0f172a';
-          ctx.strokeStyle = '#334155';
-          ctx.lineWidth = 1.2;
+          ctx.fillStyle = isLiveCurrent ? '#0c4a6e' : '#0f172a';
+          ctx.strokeStyle = isLiveCurrent ? neonColor : '#475569';
+          ctx.lineWidth = 1.4;
           ctx.beginPath();
-          ctx.roundRect(x - 3.5, y - 5, 7, 7, 2);
+          ctx.arc(x, y, 4.0, 0, Math.PI * 2);
           ctx.fill();
           ctx.stroke();
 
-          // Chrome / Nickel crimp sleeve
-          ctx.fillStyle = '#94a3b8';
-          ctx.fillRect(x - 2.5, y - 1, 5, 2);
-
-          // Center phosphor bronze pin contact
-          ctx.fillStyle = '#f8fafc';
+          ctx.fillStyle = isLiveCurrent ? '#e0f2fe' : '#cbd5e1';
           ctx.beginPath();
-          ctx.arc(x, y, 1.6, 0, Math.PI * 2);
+          ctx.arc(x, y, 1.7, 0, Math.PI * 2);
           ctx.fill();
         };
 
-        drawDupontBoot(p1x, p1y);
-        drawDupontBoot(p2x, p2y);
+        drawTerminalNode(p1x, p1y);
+        drawTerminalNode(p2x, p2y);
       }
 
       ctx.restore();
@@ -744,10 +801,12 @@ export class CanvasRenderer {
         const colorName = comp.properties.color || 'red';
 
         const colorMap: Record<string, { fill: string; glow: string; core: string }> = {
-          red: { fill: '#ef4444', glow: 'rgba(239, 68, 68, 0.85)', core: '#fca5a5' },
-          green: { fill: '#22c55e', glow: 'rgba(34, 197, 94, 0.85)', core: '#86efac' },
-          blue: { fill: '#3b82f6', glow: 'rgba(59, 130, 246, 0.85)', core: '#93c5fd' },
-          yellow: { fill: '#eab308', glow: 'rgba(234, 179, 8, 0.85)', core: '#fef08a' },
+          red: { fill: '#ef4444', glow: 'rgba(239, 68, 68, 0.92)', core: '#fecaca' },
+          amber: { fill: '#f59e0b', glow: 'rgba(245, 158, 11, 0.92)', core: '#fde68a' },
+          green: { fill: '#22c55e', glow: 'rgba(34, 197, 94, 0.92)', core: '#bbf7d0' },
+          blue: { fill: '#3b82f6', glow: 'rgba(56, 189, 248, 0.92)', core: '#bae6fd' },
+          yellow: { fill: '#eab308', glow: 'rgba(250, 204, 21, 0.92)', core: '#fef08a' },
+          white: { fill: '#e2e8f0', glow: 'rgba(248, 250, 252, 0.92)', core: '#ffffff' },
         };
         const active = colorMap[colorName] || colorMap.red;
 
@@ -762,14 +821,15 @@ export class CanvasRenderer {
         ctx.lineTo(g, 0);
         ctx.stroke();
 
-        // 1. Breadboard Surface Light Spill Corona when Emitting
+        // 1. Rich Volumetric Breadboard Surface Light Spill Corona when Emitting (Image 1 look)
         if (isEmitting) {
-          const intensity = Math.max(0.1, Math.min(1.0, Math.abs(current) / 0.02));
-          const outerR = Math.max(10, g * 2.8 * intensity);
-          const innerR = Math.max(2, g * 0.3);
+          const intensity = Math.max(0.35, Math.min(1.0, Math.abs(current) / 0.015));
+          const outerR = Math.max(18, g * 3.8 * intensity);
+          const innerR = Math.max(2, g * 0.25);
           const glowGrad = ctx.createRadialGradient(0, 0, innerR, 0, 0, outerR);
           glowGrad.addColorStop(0, active.glow);
-          glowGrad.addColorStop(0.4, active.glow.replace('0.85', '0.4'));
+          glowGrad.addColorStop(0.32, active.glow.replace('0.92', '0.52'));
+          glowGrad.addColorStop(0.68, active.glow.replace('0.92', '0.16'));
           glowGrad.addColorStop(1, 'rgba(0,0,0,0)');
           ctx.fillStyle = glowGrad;
           ctx.beginPath();

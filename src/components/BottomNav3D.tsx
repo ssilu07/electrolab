@@ -61,6 +61,7 @@ export const BottomNav3D: React.FC<BottomNav3DProps> = ({
           return (
             <button
               key={item.id}
+              data-tutorial-target={`${item.id}-tab`}
               onClick={() => handleTabClick(item.id)}
               className={`relative group px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-xl sm:rounded-2xl flex flex-col items-center justify-center gap-0.5 sm:gap-1 transition-all duration-200 outline-none active:scale-95 active:translate-y-0.5 ${
                 isItemActive

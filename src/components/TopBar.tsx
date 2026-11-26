@@ -28,6 +28,7 @@ import {
   Bell,
   BellRing,
   Globe,
+  GraduationCap,
 } from 'lucide-react';
 
 export type MainNavScreen = 'circuit' | 'instruments' | '3d' | 'challenges' | 'real_lab' | 'presets';
@@ -62,6 +63,7 @@ export interface TopBarProps {
   onOpenProModal?: () => void;
   onRateApp?: () => void;
   onCheckUpdates?: () => void;
+  onReplayTutorial?: () => void;
 }
 
 export const TopBar: React.FC<TopBarProps> = ({
@@ -88,6 +90,7 @@ export const TopBar: React.FC<TopBarProps> = ({
   onOpenProModal,
   onRateApp,
   onCheckUpdates,
+  onReplayTutorial,
 }) => {
   const { lang, setLanguage, t } = useI18n();
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -123,42 +126,42 @@ export const TopBar: React.FC<TopBarProps> = ({
 
   return (
     <>
-      <header className="fixed top-0 left-0 right-0 z-30 h-14 bg-slate-950/80 backdrop-blur-2xl border-b border-white/10 px-3 md:px-5 flex items-center justify-between font-sans select-none shadow-[0_4px_30px_rgba(0,0,0,0.6)]">
-        {/* Brand & Subtitle (Screenshot 1 & 2) */}
-        <div className="flex items-center gap-2.5 shrink-0">
-          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-cyan-400 via-sky-500 to-blue-600 flex items-center justify-center text-slate-950 shadow-lg shadow-cyan-500/30 shrink-0">
-            <Sparkles className="w-4 h-4" />
+      <header className="fixed top-0 left-0 right-0 z-30 h-14 bg-slate-950/80 backdrop-blur-2xl border-b border-white/10 px-2 sm:px-4 md:px-5 flex items-center justify-between gap-1.5 font-sans select-none shadow-[0_4px_30px_rgba(0,0,0,0.6)] overflow-hidden">
+        {/* Brand & Subtitle */}
+        <div className="flex items-center gap-1.5 sm:gap-2.5 min-w-0 shrink">
+          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-gradient-to-br from-cyan-400 via-sky-500 to-blue-600 flex items-center justify-center text-slate-950 shadow-lg shadow-cyan-500/30 shrink-0">
+            <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           </div>
-          <div>
-            <h1 className="font-extrabold text-xs sm:text-sm tracking-wider text-white flex items-center gap-1 leading-none">
-              Electro<span className="text-cyan-400">Lab</span>
+          <div className="min-w-0">
+            <h1 className="font-extrabold text-xs sm:text-sm tracking-wide sm:tracking-wider text-white flex items-center gap-1 leading-none truncate">
+              <span>Electro<span className="text-cyan-400">Lab</span></span>
               {isPro ? (
-                <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-gradient-to-r from-amber-500/20 to-yellow-500/20 text-amber-300 font-mono border border-amber-500/40 ml-0.5 flex items-center gap-0.5">
+                <span className="hidden sm:flex text-[9px] px-1.5 py-0.5 rounded-md bg-gradient-to-r from-amber-500/20 to-yellow-500/20 text-amber-300 font-mono border border-amber-500/40 ml-0.5 items-center gap-0.5 shrink-0">
                   <Crown className="w-2.5 h-2.5 text-amber-400" />
                   <span>PRO</span>
                 </span>
               ) : (
                 <button
                   onClick={onOpenProModal}
-                  className="text-[9px] px-1.5 py-0.5 rounded-md bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 font-black font-mono ml-0.5 transition shadow-sm shadow-amber-500/30 flex items-center gap-0.5 animate-pulse"
+                  className="hidden sm:flex text-[9px] px-1.5 py-0.5 rounded-md bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 font-black font-mono ml-0.5 transition shadow-sm shadow-amber-500/30 items-center gap-0.5 animate-pulse shrink-0"
                 >
                   <Crown className="w-2.5 h-2.5 fill-slate-950" />
                   <span>PRO OFFER</span>
                 </button>
               )}
             </h1>
-            <span className="text-[8px] sm:text-[9px] font-mono text-slate-400 tracking-wider block mt-0.5 uppercase hidden xs:block">
+            <span className="text-[8px] sm:text-[9px] font-mono text-slate-400 tracking-wider mt-0.5 uppercase hidden md:block">
               Circuit Creator & Simulator
             </span>
           </div>
         </div>
 
         {/* Right Action Buttons */}
-        <div className="flex items-center gap-1.5 sm:gap-2">
-          {/* Prominent Green SIMULATE / RUN Button (Screenshot 1) */}
+        <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+          {/* Prominent Green SIMULATE / RUN Button */}
           <button
             onClick={handleSimToggle}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold text-xs transition duration-200 active:scale-95 shadow-lg ${
+            className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 rounded-xl font-bold text-[11px] sm:text-xs transition duration-200 active:scale-95 shadow-lg shrink-0 ${
               isSimulating
                 ? 'bg-gradient-to-r from-emerald-500 to-green-600 text-slate-950 shadow-emerald-500/30 ring-1 ring-emerald-400/50'
                 : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700'
@@ -167,13 +170,15 @@ export const TopBar: React.FC<TopBarProps> = ({
           >
             {isSimulating ? (
               <>
-                <Pause className="w-3.5 h-3.5 fill-current" />
-                <span className="tracking-wide">{t.simulating}</span>
+                <Pause className="w-3.5 h-3.5 fill-current shrink-0" />
+                <span className="tracking-wide hidden sm:inline">{t.simulating}</span>
+                <span className="tracking-wide sm:hidden">Live</span>
               </>
             ) : (
               <>
-                <Play className="w-3.5 h-3.5 fill-current" />
-                <span className="tracking-wide">{t.simulate}</span>
+                <Play className="w-3.5 h-3.5 fill-current shrink-0" />
+                <span className="tracking-wide hidden sm:inline">{t.simulate}</span>
+                <span className="tracking-wide sm:hidden">Run</span>
               </>
             )}
           </button>
@@ -185,13 +190,13 @@ export const TopBar: React.FC<TopBarProps> = ({
               NativeBridge.haptic('light');
               onOpenPresets();
             }}
-            className="p-2 glass-button rounded-xl text-slate-300 hover:text-white transition"
+            className="p-1.5 sm:p-2 glass-button rounded-xl text-slate-300 hover:text-white transition shrink-0"
             title="Load Presets & Examples"
           >
             <FolderOpen className="w-4 h-4 text-cyan-400" />
           </button>
 
-          {/* Real-time Oscilloscope (DSO) Quick Toggle (Screenshot 2 / Visual Juice) */}
+          {/* Real-time Oscilloscope (DSO) Quick Toggle */}
           {onToggleOscilloscope && activeScreen === 'circuit' && (
             <button
               onClick={() => {
@@ -199,7 +204,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                 NativeBridge.haptic('light');
                 onToggleOscilloscope();
               }}
-              className={`px-2 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1 shadow-sm ${
+              className={`p-1.5 sm:px-2 sm:py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1 shadow-sm shrink-0 ${
                 oscilloscopeOpen
                   ? 'bg-amber-500/25 text-amber-300 border border-amber-400/70 shadow-amber-500/20'
                   : 'glass-button text-slate-300 hover:text-white'
@@ -218,7 +223,7 @@ export const TopBar: React.FC<TopBarProps> = ({
               NativeBridge.haptic('light');
               onOpenShare();
             }}
-            className="p-2 glass-button rounded-xl text-slate-300 hover:text-white transition hidden xs:flex"
+            className="p-2 glass-button rounded-xl text-slate-300 hover:text-white transition hidden md:flex shrink-0"
             title="Share & Export Circuit"
           >
             <Share2 className="w-4 h-4 text-sky-400" />
@@ -231,26 +236,28 @@ export const TopBar: React.FC<TopBarProps> = ({
               NativeBridge.haptic('light');
               if (onOpenProModal) onOpenProModal();
             }}
-            className={`px-2.5 py-1.5 rounded-xl transition flex items-center gap-1.5 text-xs font-bold ${
+            className={`px-2 sm:px-2.5 py-1.5 rounded-xl transition flex items-center gap-1 sm:gap-1.5 text-[11px] sm:text-xs font-bold shrink-0 ${
               isPro
                 ? 'bg-amber-500/15 border border-amber-500/30 text-amber-300'
                 : 'bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 font-black shadow-md shadow-amber-500/30 border border-yellow-200 active:scale-95 animate-pulse'
             }`}
             title={isPro ? 'ElectroLab Pro Active' : billingService.isIndia ? 'Upgrade to ElectroLab Pro (70% OFF)' : 'Upgrade to ElectroLab Pro'}
           >
-            <Crown className={`w-3.5 h-3.5 ${isPro ? 'text-amber-400' : 'fill-slate-950 text-slate-950'}`} />
-            <span>{isPro ? 'PRO' : billingService.isIndia ? 'PRO (₹99)' : 'PRO ($9.99)'}</span>
+            <Crown className={`w-3.5 h-3.5 shrink-0 ${isPro ? 'text-amber-400' : 'fill-slate-950 text-slate-950'}`} />
+            <span className="sm:hidden">PRO</span>
+            <span className="hidden sm:inline">{isPro ? 'PRO' : billingService.isIndia ? 'PRO (₹99)' : 'PRO ($9.99)'}</span>
           </button>
 
-          {/* Settings / 3-dots Menu Button */}
+          {/* Settings / Menu Button */}
           <button
             onClick={() => {
               soundFX.playClick();
               NativeBridge.haptic('light');
               setSettingsOpen(!settingsOpen);
             }}
-            className="p-2 glass-button rounded-xl text-slate-300 hover:text-white transition"
+            className="p-1.5 sm:p-2 glass-button rounded-xl text-slate-300 hover:text-white transition shrink-0"
             title="App Settings & Safety Controls"
+            aria-label="App Settings & Safety Controls"
           >
             <Settings className="w-4 h-4" />
           </button>
@@ -261,11 +268,11 @@ export const TopBar: React.FC<TopBarProps> = ({
       {settingsOpen && (
         <div
           onClick={() => setSettingsOpen(false)}
-          className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm flex items-start justify-end p-4 pt-16 animate-fadeIn"
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-start justify-end p-3 sm:p-4 pt-16 animate-fadeIn overflow-y-auto"
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-sm glass-modal rounded-3xl p-4 shadow-2xl space-y-3 border border-cyan-500/30"
+            className="w-full max-w-sm max-h-[calc(100vh-84px)] overflow-y-auto glass-modal rounded-3xl p-4 shadow-2xl space-y-3 border border-cyan-500/30"
           >
             <div className="flex items-center justify-between pb-2 border-b border-white/10">
               <h3 className="text-sm font-bold text-white flex items-center gap-2">
@@ -477,6 +484,24 @@ export const TopBar: React.FC<TopBarProps> = ({
 
             {/* Google Play Store Direct Connect Actions */}
             <div className="pt-2 border-t border-white/10 flex flex-col gap-1.5">
+              {onReplayTutorial && (
+                <button
+                  onClick={() => {
+                    soundFX.playClick(1.2);
+                    NativeBridge.haptic('light');
+                    setSettingsOpen(false);
+                    onReplayTutorial();
+                  }}
+                  className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold text-amber-300 hover:text-amber-200 bg-amber-500/15 border border-amber-400/35 transition active:scale-95"
+                >
+                  <div className="flex items-center gap-2">
+                    <GraduationCap className="w-3.5 h-3.5 text-amber-400" />
+                    <span>{lang === 'hi' ? 'इंटरैक्टिव ट्यूटोरियल फिर चलाएँ' : 'Replay Interactive Tutorial'}</span>
+                  </div>
+                  <span className="text-[10px] text-amber-300/80 font-mono">30s</span>
+                </button>
+              )}
+
               {onRateApp && (
                 <button
                   onClick={() => {
@@ -505,7 +530,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                     <Download className="w-3.5 h-3.5" />
                     <span>Check Play Store Updates</span>
                   </div>
-                  <span className="text-[10px] text-cyan-300/80 font-mono">v1.0.7</span>
+                  <span className="text-[10px] text-cyan-300/80 font-mono">v1.0.12</span>
                 </button>
               )}
 
@@ -519,7 +544,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                   className="w-full flex items-center justify-between px-3 py-1.5 rounded-xl text-[11px] text-slate-400 hover:text-slate-200 transition"
                 >
                   <span>{t.privacyPolicy}</span>
-                  <span className="text-[9px] font-mono text-cyan-400">v1.0.7</span>
+                  <span className="text-[9px] font-mono text-cyan-400">v1.0.12</span>
                 </button>
               )}
             </div>

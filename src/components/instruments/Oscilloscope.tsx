@@ -224,12 +224,22 @@ export const Oscilloscope: React.FC<OscilloscopeProps> = ({
   const vpp = Math.max(0, vMax - vMin);
   const vRms = Math.sqrt(buf.reduce((acc, v) => acc + v * v, 0) / buf.length);
 
+  const safeWidth = typeof window !== 'undefined' ? Math.min(384, window.innerWidth - 20) : 364;
+  const clampedLeft =
+    typeof window !== 'undefined'
+      ? Math.max(10, Math.min(state.x, Math.max(10, window.innerWidth - safeWidth - 10)))
+      : Math.max(10, state.x);
+  const clampedTop =
+    typeof window !== 'undefined'
+      ? Math.max(60, Math.min(state.y, Math.max(60, window.innerHeight - 360)))
+      : Math.max(60, state.y);
+
   return (
     <div
       onMouseDown={handleMouseDown}
       onTouchStart={handleTouchStart}
-      style={{ left: `${Math.min(state.x, Math.max(10, window.innerWidth - 380))}px`, top: `${Math.min(state.y, Math.max(60, window.innerHeight - 340))}px` }}
-      className="fixed z-40 w-96 max-w-[calc(100vw-20px)] bg-slate-900/95 backdrop-blur-md p-3 rounded-2xl shadow-2xl border border-cyan-500/30 select-none cursor-grab active:cursor-grabbing font-mono touch-none"
+      style={{ left: `${clampedLeft}px`, top: `${clampedTop}px`, width: `${safeWidth}px` }}
+      className="fixed z-40 max-w-[calc(100vw-20px)] bg-slate-900/95 backdrop-blur-md p-3 rounded-2xl shadow-2xl border border-cyan-500/30 select-none cursor-grab active:cursor-grabbing font-mono touch-none overflow-hidden"
     >
       {/* Scope Header */}
       <div className="flex items-center justify-between pb-2 border-b border-slate-800 text-cyan-400 text-xs font-bold tracking-wider">
@@ -288,9 +298,9 @@ export const Oscilloscope: React.FC<OscilloscopeProps> = ({
 
       {/* Scope Controls */}
       <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-        <div className="bg-slate-950/80 p-2 rounded-lg border border-slate-800 flex items-center justify-between">
-          <span className="text-slate-400 text-[11px]">Volts / Div:</span>
-          <div className="flex gap-1">
+        <div className="bg-slate-950/80 p-2 rounded-lg border border-slate-800 flex flex-col gap-1.5 min-w-0">
+          <span className="text-slate-400 text-[10px] leading-none">Volts / Div</span>
+          <div className="grid grid-cols-4 gap-1">
             {[0.5, 1.0, 2.0, 5.0].map((v) => (
               <button
                 key={v}
@@ -298,7 +308,7 @@ export const Oscilloscope: React.FC<OscilloscopeProps> = ({
                   soundFX.playDialTick();
                   onUpdateState({ voltsDiv: v });
                 }}
-                className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                className={`px-1 py-0.5 rounded text-[10px] font-bold text-center truncate ${
                   state.voltsDiv === v
                     ? 'bg-cyan-500 text-black'
                     : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
@@ -310,9 +320,9 @@ export const Oscilloscope: React.FC<OscilloscopeProps> = ({
           </div>
         </div>
 
-        <div className="bg-slate-950/80 p-2 rounded-lg border border-slate-800 flex items-center justify-between">
-          <span className="text-slate-400 text-[11px]">Time / Div:</span>
-          <div className="flex gap-1">
+        <div className="bg-slate-950/80 p-2 rounded-lg border border-slate-800 flex flex-col gap-1.5 min-w-0">
+          <span className="text-slate-400 text-[10px] leading-none">Time / Div</span>
+          <div className="grid grid-cols-4 gap-1">
             {[1, 5, 10, 50].map((t) => (
               <button
                 key={t}
@@ -320,7 +330,7 @@ export const Oscilloscope: React.FC<OscilloscopeProps> = ({
                   soundFX.playDialTick();
                   onUpdateState({ timeDivMs: t });
                 }}
-                className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                className={`px-1 py-0.5 rounded text-[10px] font-bold text-center truncate ${
                   state.timeDivMs === t
                     ? 'bg-cyan-500 text-black'
                     : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
