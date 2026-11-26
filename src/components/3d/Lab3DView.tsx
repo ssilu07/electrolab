@@ -14,6 +14,23 @@ import { buildComponent3D, buildWire3D } from './models3d';
 import { GLASS_THEMES } from '../../theme/glassTheme';
 import { soundFX } from '../../audio/SoundFX';
 import { NativeBridge } from '../../utils/nativeBridge';
+import { isLowEndDevice } from '../../utils/devicePerf';
+
+function disposeObject3D(root: THREE.Object3D): void {
+  root.traverse((obj) => {
+    const mesh = obj as THREE.Mesh;
+    if (mesh.geometry && typeof mesh.geometry.dispose === 'function') {
+      mesh.geometry.dispose();
+    }
+    if (mesh.material) {
+      if (Array.isArray(mesh.material)) {
+        mesh.material.forEach((m) => m && typeof m.dispose === 'function' && m.dispose());
+      } else if (typeof mesh.material.dispose === 'function') {
+        mesh.material.dispose();
+      }
+    }
+  });
+}
 import {
   Rotate3d,
   Compass,
@@ -68,6 +85,8 @@ export const Lab3DView: React.FC<Lab3DViewProps> = ({
   const [wiringFromPin, setWiringFromPin] = useState<string | null>(null);
   const [hoveredName, setHoveredName] = useState<string | null>(null);
   const [isCinematicSpin, setIsCinematicSpin] = useState<boolean>(false);
+  const isCinematicSpinRef = useRef<boolean>(false);
+  isCinematicSpinRef.current = isCinematicSpin;
   const [cameraPreset, setCameraPreset] = useState<'perspective' | 'isometric' | 'top'>('perspective');
   const [cameraMenuOpen, setCameraMenuOpen] = useState<boolean>(false);
 
@@ -95,17 +114,20 @@ export const Lab3DView: React.FC<Lab3DViewProps> = ({
     camera.position.set(0, 15, 18);
     cameraRef.current = camera;
 
-    // Renderer
+    // Renderer (adapt quality on budget Android GPUs to prevent Unresponsive GPU ANRs)
+    const lowEnd = isLowEndDevice();
     const renderer = new THREE.WebGLRenderer({
       canvas,
-      antialias: true,
-      powerPreference: 'high-performance',
+      antialias: !lowEnd,
+      powerPreference: lowEnd ? 'low-power' : 'default',
       alpha: true,
     });
     renderer.setSize(width, height);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFShadowMap;
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, lowEnd ? 1 : 1.5));
+    renderer.shadowMap.enabled = !lowEnd;
+    if (!lowEnd) {
+      renderer.shadowMap.type = THREE.PCFShadowMap;
+    }
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.1;
     rendererRef.current = renderer;
@@ -129,12 +151,14 @@ export const Lab3DView: React.FC<Lab3DViewProps> = ({
 
     const mainSpot = new THREE.SpotLight(0xffffff, 45, 120, Math.PI / 3, 0.4, 1.2);
     mainSpot.position.set(6, 30, 12);
-    mainSpot.castShadow = true;
-    mainSpot.shadow.mapSize.width = 2048;
-    mainSpot.shadow.mapSize.height = 2048;
-    mainSpot.shadow.camera.near = 10;
-    mainSpot.shadow.camera.far = 80;
-    mainSpot.shadow.bias = -0.001;
+    mainSpot.castShadow = !lowEnd;
+    if (!lowEnd) {
+      mainSpot.shadow.mapSize.width = 1024;
+      mainSpot.shadow.mapSize.height = 1024;
+      mainSpot.shadow.camera.near = 10;
+      mainSpot.shadow.camera.far = 80;
+      mainSpot.shadow.bias = -0.001;
+    }
     scene.add(mainSpot);
 
     // Rim lighting (cyber specular sheen)
@@ -152,22 +176,18 @@ export const Lab3DView: React.FC<Lab3DViewProps> = ({
     const tableGroup = new THREE.Group();
     tableGroup.name = 'workbench_table';
 
-    // 1. Tempered Frosted Dark Glass Surface
+    // 1. Tempered Frosted Dark Glass Surface (single-pass material: avoids double-render transmission FBO stall)
     const glassGeo = new THREE.BoxGeometry(60, 0.4, 48);
-    const glassMat = new THREE.MeshPhysicalMaterial({
+    const glassMat = new THREE.MeshStandardMaterial({
       color: themeConfig.tableGlassColor,
-      metalness: 0.2,
-      roughness: 0.12,
-      transmission: 0.7,
+      metalness: 0.25,
+      roughness: 0.14,
       transparent: true,
-      opacity: 0.85,
-      reflectivity: 0.9,
-      clearcoat: 0.8,
-      clearcoatRoughness: 0.1,
+      opacity: 0.84,
     });
     const glassTable = new THREE.Mesh(glassGeo, glassMat);
     glassTable.position.set(0, -0.2, 0);
-    glassTable.receiveShadow = true;
+    glassTable.receiveShadow = !lowEnd;
     tableGroup.add(glassTable);
 
     // 2. Beveled Metallic Outer Frame
@@ -264,19 +284,28 @@ export const Lab3DView: React.FC<Lab3DViewProps> = ({
     window.addEventListener('resize', handleResize);
 
     // ------------------------------------------------------------------------
-    // ANIMATION RENDER LOOP (60 FPS)
+    // ANIMATION RENDER LOOP (pauses cleanly when app is hidden / ad is shown)
     // ------------------------------------------------------------------------
-    let reqId: number;
+    let reqId = 0;
+    let isDisposed = false;
     let lastAnimTime = performance.now();
+    const minFrameIntervalMs = lowEnd ? 33 : 0; // ~30 FPS cap on budget GPUs
 
     const animate = () => {
+      if (isDisposed || document.hidden) {
+        reqId = 0;
+        return;
+      }
       reqId = requestAnimationFrame(animate);
       const now = performance.now();
+      if (minFrameIntervalMs > 0 && now - lastAnimTime < minFrameIntervalMs) {
+        return;
+      }
       const delta = Math.min(0.05, (now - lastAnimTime) / 1000);
       lastAnimTime = now;
 
       // Cinematic turntable spin
-      if (isCinematicSpin && controls) {
+      if (isCinematicSpinRef.current && controls) {
         controls.autoRotate = true;
         controls.autoRotateSpeed = 1.2;
       } else if (controls) {
@@ -306,14 +335,33 @@ export const Lab3DView: React.FC<Lab3DViewProps> = ({
       renderer.render(scene, camera);
     };
 
-    animate();
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        if (reqId) {
+          cancelAnimationFrame(reqId);
+          reqId = 0;
+        }
+      } else if (!isDisposed && !reqId) {
+        lastAnimTime = performance.now();
+        reqId = requestAnimationFrame(animate);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    if (!document.hidden) {
+      animate();
+    }
 
     return () => {
-      cancelAnimationFrame(reqId);
+      isDisposed = true;
+      if (reqId) cancelAnimationFrame(reqId);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('resize', handleResize);
+      controls.dispose();
+      disposeObject3D(scene);
       renderer.dispose();
     };
-  }, [glassTheme, isCinematicSpin]);
+  }, [glassTheme]);
 
   // --------------------------------------------------------------------------
   // REBUILD 3D COMPONENTS & WIRES WHEN CIRCUIT CHANGES
@@ -326,19 +374,26 @@ export const Lab3DView: React.FC<Lab3DViewProps> = ({
 
     if (!compsGroup || !wiresGroup || !pulsesGroup || !pinMarkersGroup) return;
 
-    // 1. Clear existing meshes
+    // 1. Clear and dispose existing meshes to prevent GPU VRAM leaks
     while (compsGroup.children.length > 0) {
       const child = compsGroup.children[0];
       compsGroup.remove(child);
+      disposeObject3D(child);
     }
     while (wiresGroup.children.length > 0) {
-      wiresGroup.remove(wiresGroup.children[0]);
+      const child = wiresGroup.children[0];
+      wiresGroup.remove(child);
+      disposeObject3D(child);
     }
     while (pulsesGroup.children.length > 0) {
-      pulsesGroup.remove(pulsesGroup.children[0]);
+      const child = pulsesGroup.children[0];
+      pulsesGroup.remove(child);
+      disposeObject3D(child);
     }
     while (pinMarkersGroup.children.length > 0) {
-      pinMarkersGroup.remove(pinMarkersGroup.children[0]);
+      const child = pinMarkersGroup.children[0];
+      pinMarkersGroup.remove(child);
+      disposeObject3D(child);
     }
 
     // 2. Build 3D Components

@@ -80,15 +80,20 @@ export const InstrumentsDashboard: React.FC<InstrumentsDashboardProps> = ({
   const simRef = useRef(simulation);
   simRef.current = simulation;
 
-  // 60 FPS Dual-Channel Phosphor Oscilloscope Renderer (Image 2 style)
+  // Dual-Channel Phosphor Oscilloscope Renderer (pauses cleanly when app is hidden / ad is shown)
   useEffect(() => {
     let animId = 0;
+    let isCancelled = false;
     const canvas = scopeCanvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
     const render = () => {
+      if (isCancelled || document.hidden) {
+        animId = 0;
+        return;
+      }
       const w = canvas.width;
       const h = canvas.height;
 
@@ -186,8 +191,27 @@ export const InstrumentsDashboard: React.FC<InstrumentsDashboardProps> = ({
       animId = requestAnimationFrame(render);
     };
 
-    animId = requestAnimationFrame(render);
-    return () => cancelAnimationFrame(animId);
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        if (animId) {
+          cancelAnimationFrame(animId);
+          animId = 0;
+        }
+      } else if (!isCancelled && !animId) {
+        animId = requestAnimationFrame(render);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    if (!document.hidden) {
+      animId = requestAnimationFrame(render);
+    }
+
+    return () => {
+      isCancelled = true;
+      if (animId) cancelAnimationFrame(animId);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, [
     scopeRunning,
     isSimulating,

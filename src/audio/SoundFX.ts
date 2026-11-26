@@ -14,7 +14,21 @@ class SoundFXEngine {
   private burnGain: GainNode | null = null;
 
   constructor() {
-    // Lazy initialization on first user interaction
+    // Lazy initialization on first user interaction.
+    // Suspend native AudioContext whenever app is backgrounded or behind a fullscreen ad
+    // so AudioThread / AudioTrack does not compete with GPU/AdMob on low-end devices.
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+          this.stopContinuity();
+          this.stopCircuitBuzzer();
+          this.stopBurn();
+          if (this.ctx && this.ctx.state === 'running') {
+            this.ctx.suspend().catch(() => {});
+          }
+        }
+      });
+    }
   }
 
   private initContext(): AudioContext | null {

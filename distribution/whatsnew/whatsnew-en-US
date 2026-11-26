@@ -1,7 +1,6 @@
-⚡ ElectroLab v1.0.12 — Major Visual & Interactive Upgrade!
-• New Game-Style Hands-On Tutorial for first-time builders
-• Neon-lit dark PCB board with glowing current traces & docked live Voltage/LED meter
-• Upgraded Dual-Channel Oscilloscope, Function Generator, Multimeter & Power Supply Studio
-• Gamified 3-Star Puzzles with Reset, Hint & Next Level controls
-• Cinematic Fireball Explosions, Plasma Arcs & Volumetric Rising Smoke
-• Smoother 60 FPS performance & mobile layout fixes
+⚡ ElectroLab v1.0.13 — Stability, Performance & Visual Upgrade!
+• Faster startup & freeze-free performance on all Android devices (ANR & GPU fixes)
+• New Hands-On Interactive Tutorial for first-time builders
+• Neon-lit dark PCB board with glowing current traces & live Voltage/LED meter
+• Upgraded Dual-Channel Oscilloscope, Function Generator & Power Supply Studio
+• Gamified 3-Star Puzzles & Cinematic Explosion FX

@@ -43,6 +43,7 @@ import {
   TUTORIAL_STORAGE_KEY,
 } from './components/InteractiveTutorial';
 import { billingService } from './services/billingService';
+import { isLowEndDevice } from './utils/devicePerf';
 import { adService } from './services/adService';
 import { playStoreService } from './services/playStoreService';
 import { notificationService } from './services/notificationService';
@@ -660,13 +661,34 @@ export function App() {
   );
 
   // --------------------------------------------------------------------------
-  // MAIN ANIMATION & SIMULATION LOOP (60 FPS)
+  // MAIN ANIMATION & SIMULATION LOOP (pauses cleanly on background / AdMob)
   // --------------------------------------------------------------------------
   useEffect(() => {
-    let animId: number;
+    let animId = 0;
+    let isCancelled = false;
     let lastTime = performance.now();
+    const lowEnd = isLowEndDevice();
+    const minFrameIntervalMs = lowEnd ? 33 : 0; // ~30 FPS cap on budget Android GPUs
+
+    // Precompute pin map once per circuit change instead of 60x/sec
+    const pinMap = new Map<string, CircuitPin>();
+    for (const comp of components) {
+      for (const p of getComponentPins(comp)) {
+        pinMap.set(p.id, p);
+      }
+    }
 
     const loop = (currentTime: number) => {
+      if (isCancelled || document.hidden) {
+        animId = 0;
+        return;
+      }
+
+      if (minFrameIntervalMs > 0 && currentTime - lastTime < minFrameIntervalMs) {
+        animId = requestAnimationFrame(loop);
+        return;
+      }
+
       const dt = Math.min(0.033, (currentTime - lastTime) / 1000);
       lastTime = currentTime;
 
@@ -794,12 +816,6 @@ export function App() {
         return;
       }
 
-      const pinMap = new Map<string, CircuitPin>();
-      for (const comp of components) {
-        for (const p of getComponentPins(comp)) {
-          pinMap.set(p.id, p);
-        }
-      }
       particleSystemRef.current.update(dt, wires, pinMap, gridSize);
 
       rendererRef.current.render({
@@ -824,9 +840,30 @@ export function App() {
       animId = requestAnimationFrame(loop);
     };
 
-    animId = requestAnimationFrame(loop);
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        if (animId) {
+          cancelAnimationFrame(animId);
+          animId = 0;
+        }
+        soundFX.stopCircuitBuzzer();
+        soundFX.stopBurn();
+        soundFX.stopContinuity();
+      } else if (!isCancelled && !animId) {
+        lastTime = performance.now();
+        animId = requestAnimationFrame(loop);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    if (!document.hidden) {
+      animId = requestAnimationFrame(loop);
+    }
+
     return () => {
-      cancelAnimationFrame(animId);
+      isCancelled = true;
+      if (animId) cancelAnimationFrame(animId);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       soundFX.stopCircuitBuzzer();
       soundFX.stopBurn();
       soundFX.stopContinuity();
